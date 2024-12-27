@@ -60,13 +60,16 @@ module cpu (
     output logic [31:0] wdata,
     output logic wr,
     input logic [31:0] data
+
+    // debug
+    // output logic [`XLEN-1:0] x[`RLEN]
 );
 
   // General-purpose registers
   logic [`XLEN-1:0] x  [`RLEN];
-  logic [`RLEN-1:0] pc;
 
-  assign x[0] = '0;  // x0 hardwired to 0
+  logic [`RLEN-1:0] pc;
+  assign iaddr = pc;
 
   /* Decode */
   logic [6:0] opcode = idata[6:0];
@@ -128,6 +131,38 @@ module cpu (
   assign j_imm  = {{12{idata[31]}}, idata[19:12], idata[20], idata[30:25], idata[24:21], 1'b0};
   /* End Decode */
 
+`ifdef DEBUG
+  `define PRINT_R_TYPE $strobe("R type: rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h", \
+r_rs1, r_rs2, r_rd, r_f7, r_f3);
+  `define PRINT_I_TYPE $strobe("I type: rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h",\
+i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
+  `define PRINT_S_TYPE $strobe("S type: rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
+s_rs1, s_rs2, s_f3, s_imm);
+  `define PRINT_B_TYPE $strobe("B type: rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
+b_rs1, b_rs2, b_f3, b_imm);
+  `define PRINT_U_TYPE $strobe("U type: rd=0x%0h imm=0x%0h", \
+u_rd, u_imm);
+  `define PRINT_J_TYPE $strobe("J type: rd=0x%0h imm=0x%0h", \
+j_rd, j_imm);
+  `define PRINT_X \
+  $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
+  $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
+  $strobe("  x16=0x%0h x17=0x%0h x18=0x%0h x19=0x%0h x20=0x%0h x21=0x%0h x22=0x%0h x23=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
+  $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]);
+  `define PRINT_STEP $strobe( \
+          "time=%0t opcode=0x%0h pc=0x%0h iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h", \
+          $time, opcode, pc, iaddr, idata, addr, data, wdata, wr);
+`else
+  `define PRINT_R_TYPE
+  `define PRINT_I_TYPE
+  `define PRINT_S_TYPE
+  `define PRINT_B_TYPE
+  `define PRINT_U_TYPE
+  `define PRINT_J_TYPE
+  `define PRINT_X
+  `define PRINT_STEP
+`endif
+
   typedef enum {
     IDLE,
     WAIT_LS
@@ -137,34 +172,41 @@ module cpu (
   always_ff @(posedge clk, negedge rst_n) begin
     if (!rst_n) begin
       wr <= '0;
-      iaddr <= `RESET_PC;
+      pc <= `RESET_PC;
       state <= IDLE;
     end else begin
 
       wr <= 0;
       pc <= pc + 4;
 
+      `PRINT_STEP
+
       // Execute
       case (state)
         IDLE: begin
           case (opcode)
             `OP_LUI: begin
+              `PRINT_U_TYPE
               x[u_rd] <= u_imm;
             end
             `OP_AUIPC: begin
+              `PRINT_U_TYPE
               x[u_rd] <= pc + u_imm;
             end
             `OP_JAL: begin
+              `PRINT_J_TYPE
               pc <= j_imm;
               x[j_rd] <= pc + 4;
               // should check addr alignment
             end
             `OP_JALR: begin
+              `PRINT_I_TYPE
               pc <= (i_imm + x[i_rs1]) & 32'hFFFFFFFE;
               x[i_rd] <= pc + 4;
               // should check addr alignment
             end
             `OP_B: begin
+              `PRINT_B_TYPE
               case (b_f3)
                 `F3_BEQ: begin
                   if (x[b_rs1] == x[b_rs2]) pc <= pc + b_imm;
@@ -189,16 +231,20 @@ module cpu (
               endcase
             end
             `OP_L: begin
+              `PRINT_I_TYPE
               pc <= pc;
               addr <= x[i_rs1] + i_imm;
               state <= WAIT_LS;
             end
             `OP_S: begin
+              `PRINT_I_TYPE
               pc <= pc;
               addr <= x[i_rs1] + i_imm;
               state <= WAIT_LS;
             end
             `OP_RI: begin
+              `PRINT_I_TYPE
+              `PRINT_X
               case (i_f3)
                 `F3_ADDSUB: begin
                   x[i_rd] <= x[i_rs1] + i_imm;
@@ -230,6 +276,7 @@ module cpu (
               endcase
             end
             `OP_RR: begin
+              `PRINT_R_TYPE
               case (r_f3)
                 `F3_ADDSUB: begin
                   if (r_f7 == `F7_ADD) x[r_rd] <= x[r_rs1] + x[r_rs2];
@@ -266,6 +313,7 @@ module cpu (
             `OP_E: begin
             end
             default: begin
+              pc <= pc;
             end
           endcase
         end
@@ -290,7 +338,7 @@ module cpu (
               end
               default: begin
               end
-            endcase // OP_L f3
+            endcase  // OP_L f3
           else if (opcode == `OP_S) begin
             wr <= '1;
             case (i_f3)
@@ -305,13 +353,15 @@ module cpu (
               end
               default: begin
               end
-            endcase // OP_S f3
+            endcase  // OP_S f3
           end
         end
         default: begin
         end
-      endcase // state
+      endcase  // state
     end
+
+    x[0] <= '0;  // hardwire to 0
   end
 
 endmodule
