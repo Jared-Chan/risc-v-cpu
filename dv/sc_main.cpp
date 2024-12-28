@@ -23,9 +23,7 @@ int sc_main(int, char *[]) {
 
     uvm::uvm_config_db<cpu_if *>::set(0, "*", "vif", cif);
 
-    uvm::run_test("test");
-
-    sc_core::sc_start();
+    uvm::run_test("base_test");
 
     return 0;
 }
