@@ -1,0 +1,483 @@
+#include "cpu_util.hpp"
+#include "cpu_seq_item.hpp"
+#include <cstdint>
+
+std::uint32_t cpu_util::make_j_type_instruction(cpu_util::Opcode opcode,
+                                                std::uint8_t rd,
+                                                std::uint32_t imm) {
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (static_cast<std::uint32_t>(rd) << 7);
+    idata |= (((imm & (1 << 20)) >> 20) << 31);
+    idata |= (((imm >> 1) & 0x3ff) << 21);
+    idata |= (((imm & (1 << 11)) >> 11) << 20);
+    idata |= (((imm >> 12) & 0xff) << 12);
+    return idata;
+}
+
+std::uint32_t cpu_util::make_u_type_instruction(cpu_util::Opcode opcode,
+                                                std::uint8_t rd,
+                                                std::uint32_t imm) {
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (static_cast<std::uint32_t>(rd) << 7);
+    idata |= (imm & 0xFFFFF000);
+    return idata;
+}
+
+std::uint32_t cpu_util::make_i_type_instruction(cpu_util::Opcode opcode,
+                                                cpu_util::F3 f3,
+                                                std::uint8_t rd,
+                                                std::uint32_t imm,
+                                                std::uint8_t rs1) {
+
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (static_cast<std::uint32_t>(rd) << 7);
+    idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
+    idata |= (static_cast<std::uint32_t>(rs1) << 15);
+    idata |= (imm & 0xFFF) << 20;
+
+    return idata;
+}
+
+std::uint32_t cpu_util::make_i_type_shift_instruction(
+    cpu_util::Opcode opcode, cpu_util::F3 f3, cpu_util::F7 f7, std::uint8_t rd,
+    std::uint32_t imm, std::uint8_t rs1) {
+
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (static_cast<std::uint32_t>(rd) << 7);
+    idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
+    idata |= (static_cast<std::uint32_t>(rs1) << 15);
+    idata |= (imm & 0x1F) << 20;
+    idata |= (static_cast<std::uint32_t>(f7) & 0x7F) << 25;
+
+    return idata;
+}
+
+std::uint32_t
+cpu_util::make_r_type_instruction(cpu_util::Opcode opcode, cpu_util::F3 f3,
+                                  cpu_util::F7 f7, std::uint8_t rd,
+                                  std::uint8_t rs1, std::uint8_t rs2) {
+
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (static_cast<std::uint32_t>(rd) << 7);
+    idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
+    idata |= (static_cast<std::uint32_t>(rs1) << 15);
+    idata |= (static_cast<std::uint32_t>(rs2) << 20);
+    idata |= (static_cast<std::uint32_t>(f7) & 0x7F) << 25;
+    return idata;
+}
+
+std::uint32_t cpu_util::make_s_type_instruction(cpu_util::Opcode opcode,
+                                                cpu_util::F3 f3,
+                                                std::uint8_t rs1,
+                                                std::uint8_t rs2,
+                                                std::uint32_t imm) {
+
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= ((static_cast<std::uint32_t>(imm) & 0x1F) << 7);
+    idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
+    idata |= (static_cast<std::uint32_t>(rs1) << 15);
+    idata |= (static_cast<std::uint32_t>(rs2) << 20);
+    idata |= (imm & 0x7F) << 25;
+
+    return idata;
+}
+
+std::uint32_t cpu_util::make_b_type_instruction(cpu_util::Opcode opcode,
+                                                cpu_util::F3 f3,
+                                                std::uint8_t rs1,
+                                                std::uint8_t rs2,
+                                                std::uint32_t imm) {
+
+    std::uint32_t idata = 0;
+    idata |= static_cast<std::uint32_t>(opcode);
+    idata |= (((static_cast<std::uint32_t>(imm) >> 11) & 1) << 7);
+    idata |= (((static_cast<std::uint32_t>(imm) << 1) & 0xF) << 8);
+    idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
+    idata |= (static_cast<std::uint32_t>(rs1) << 15);
+    idata |= (static_cast<std::uint32_t>(rs2) << 20);
+    idata |= ((imm >> 5) & 0x3F) << 25;
+    idata |= ((imm >> 12) & 0x1) << 31;
+
+    return idata;
+}
+
+bool cpu_util::is_nop(cpu_seq_item &item) {
+
+    if (item.idata == cpu_util::make_i_type_instruction(
+                          cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0))
+        return true;
+    return false;
+}
+
+void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &str) {
+
+    str << "At 0x" << std::hex << item.iaddr;
+
+    cpu_util::Opcode opcode = static_cast<cpu_util::Opcode>(item.idata & 0x3F);
+    cpu_util::F3 f3 = static_cast<cpu_util::F3>((item.idata >> 12) & 0x7);
+    cpu_util::F7 f7 = static_cast<cpu_util::F7>(item.idata >> 25);
+    std::uint32_t riuj_rd = (item.idata >> 7) & 0x1F;
+    std::uint32_t risb_rs1 = (item.idata >> 15) & 0x1F;
+    std::uint32_t rsb_rs2 = (item.idata >> 20) & 0x1F;
+
+    std::uint32_t i_imm = (item.idata >> 20) & 0xFFF;
+    i_imm |= ((i_imm >> 11) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 11);
+    std::uint32_t s_imm =
+        ((item.idata >> 20) & 0xFE0) | ((item.idata >> 7) & 0x1F);
+    s_imm |= ((s_imm >> 11) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 11);
+    std::uint32_t b_imm =
+        ((item.idata >> 20) & 0x7E0) | (((item.idata >> 31) & 0x1) << 12) |
+        (((item.idata >> 8) & 0xF) << 1) | (((item.idata >> 7) & 0x1) << 11);
+    b_imm |= ((b_imm >> 12) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 12);
+    std::uint32_t u_imm = item.idata  & 0xFFFFF000;
+    std::uint32_t j_imm =
+        (((item.idata >> 21) & 0x3FF) << 1) | (((item.idata >> 31) & 0x1) << 20) |
+        (((item.idata >> 12) & 0xFF) << 12) | (((item.idata >> 20) & 0x1) << 11);
+    j_imm |= ((j_imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20);
+
+    switch (opcode) {
+    case (cpu_util::Opcode::JAL):
+        str << " JAL to " << std::hex << j_imm;
+        str << " with rd 0x" << std::hex << riuj_rd;
+        return;
+    case (cpu_util::Opcode::JALR):
+        str << " JALR with offset 0x" << std::hex << i_imm;
+        str << " and rs1 0x" << std::hex << risb_rs1;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+    case (cpu_util::Opcode::RI):
+        str << " RI ";
+        switch (f3) {
+        case (cpu_util::F3::ADDSUB):
+            str << " ADD ";
+            break;
+        case (cpu_util::F3::SLT):
+            str << " SLT ";
+            break;
+        case (cpu_util::F3::SLTU):
+            str << " SLTU ";
+            break;
+        case (cpu_util::F3::AND):
+            str << " AND ";
+            break;
+        case (cpu_util::F3::OR):
+            str << " OR ";
+            break;
+        case (cpu_util::F3::XOR):
+            str << " XOR ";
+            break;
+        case (cpu_util::F3::SLL):
+            str << " SLL ";
+            break;
+        case (cpu_util::F3::SR):
+            if (f7 == cpu_util::F7::SRA)
+                str << " SRA ";
+            else
+                str << " SRL ";
+            break;
+        }
+        str << " with imm 0x" << std::hex << i_imm;
+        str << " and rs1 0x" << std::hex << risb_rs1;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+    case (cpu_util::Opcode::RR):
+        str << " RI ";
+        switch (f3) {
+        case (cpu_util::F3::ADDSUB):
+            if (f7 == cpu_util::F7::ADD)
+                str << " ADD " << std::hex << riuj_rd;
+            else
+                str << " SUB " << std::hex << riuj_rd;
+        case (cpu_util::F3::SLT):
+            str << " SLT ";
+            break;
+        case (cpu_util::F3::SLTU):
+            str << " SLTU ";
+            break;
+        case (cpu_util::F3::AND):
+            str << " AND ";
+            break;
+        case (cpu_util::F3::OR):
+            str << " OR ";
+            break;
+        case (cpu_util::F3::XOR):
+            str << " XOR ";
+            break;
+        case (cpu_util::F3::SLL):
+            str << " SLL ";
+            break;
+        case (cpu_util::F3::SR):
+            if (f7 == cpu_util::F7::SRA)
+                str << " SRA ";
+            else
+                str << " SRL ";
+            break;
+        }
+        str << " with rs1 0x" << std::hex << risb_rs1;
+        str << " and rs2 0x" << std::hex << rsb_rs2;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+    case (cpu_util::Opcode::LUI):
+        str << " LUI ";
+        str << " with imm 0x" << std::hex << u_imm;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+    case (cpu_util::Opcode::AUIPC):
+        str << " LUI ";
+        str << " with imm 0x" << std::hex << u_imm;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+
+    case (cpu_util::Opcode::L):
+        str << " L ";
+        str << " with imm 0x" << std::hex << i_imm;
+        str << " with width 0x" << std::hex << static_cast<std::uint8_t>(f3);
+        str << " and rs1 0x" << std::hex << risb_rs1;
+        str << " and rd 0x" << std::hex << riuj_rd;
+        break;
+
+    case (cpu_util::Opcode::S):
+        str << " S ";
+        str << " with imm 0x" << std::hex << s_imm;
+        str << " with width 0x" << std::hex << static_cast<std::uint8_t>(f3);
+        str << " and rs1 0x" << std::hex << risb_rs1;
+        str << " and rs2 0x" << std::hex << rsb_rs2;
+        break;
+
+    case (cpu_util::Opcode::B):
+        str << " B ";
+        switch (f3) {
+        case (cpu_util::F3::BEQ):
+            str << "BEQ ";
+            break;
+        case (cpu_util::F3::BNE):
+            str << "BNE ";
+            break;
+        case (cpu_util::F3::BLT):
+            str << "BLT ";
+            break;
+        case (cpu_util::F3::BGE):
+            str << "BGE ";
+            break;
+        case (cpu_util::F3::BLTU):
+            str << "BLTU ";
+            break;
+        case (cpu_util::F3::BGEU):
+            str << "BGEU ";
+            break;
+        default:
+            break;
+        }
+        str << " with imm 0x" << std::hex << b_imm;
+        str << " and rs1 0x" << std::hex << risb_rs1;
+        str << " and rs2 0x" << std::hex << rsb_rs2;
+        break;
+
+    // not implemented, set to NOP
+    case (cpu_util::Opcode::F):
+        str << " F ";
+        break;
+    case (cpu_util::Opcode::E):
+        str << " B ";
+        break;
+    default:
+        break;
+    }
+}
+
+void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
+
+                                std::uint8_t rs2, std::uint8_t rd,
+                                std::uint32_t imm, std::uint32_t data,
+
+                                std::uint32_t rs1_val, std::uint32_t rs2_val,
+
+                                std::uint32_t addr, std::uint32_t cur_iaddr,
+
+                                // seq items
+                                cpu_seq_item &item, cpu_seq_item &exp_item) {
+
+    std::uint32_t imm_12_signed_extended =
+        ((((imm & 0xFFF) >> 11) & 1) == 0 ? 0 : 0xFFFFF000);
+    std::uint32_t baddr = cur_iaddr;
+    switch (opcode) {
+    case (cpu_util::Opcode::JAL):
+        item.idata =
+            cpu_util::make_j_type_instruction(cpu_util::Opcode::JAL, rd, imm);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = imm;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        return;
+    case (cpu_util::Opcode::JALR):
+        item.idata = cpu_util::make_i_type_instruction(cpu_util::Opcode::JALR,
+                                                       f3, rd, imm, rs1);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = imm_12_signed_extended + rs1_val;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+    case (cpu_util::Opcode::RI):
+        switch (f3) {
+        case (cpu_util::F3::ADDSUB):
+        case (cpu_util::F3::SLT):
+        case (cpu_util::F3::SLTU):
+        case (cpu_util::F3::AND):
+        case (cpu_util::F3::OR):
+        case (cpu_util::F3::XOR):
+            item.idata = cpu_util::make_i_type_instruction(cpu_util::Opcode::RI,
+                                                           f3, rd, imm, rs1);
+            break;
+        case (cpu_util::F3::SLL):
+        case (cpu_util::F3::SR):
+            item.idata = cpu_util::make_i_type_shift_instruction(
+                cpu_util::Opcode::RI, f3, f7, rd, imm, rs1);
+            break;
+        }
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr + 4;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+    case (cpu_util::Opcode::RR):
+        item.idata = cpu_util::make_r_type_instruction(cpu_util::Opcode::RR, f3,
+                                                       f7, rd, rs1, rs2);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr + 4;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+    case (cpu_util::Opcode::LUI):
+    case (cpu_util::Opcode::AUIPC):
+        item.idata = cpu_util::make_u_type_instruction(opcode, rd, imm);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr + 4;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+
+    // L and S take 2 cycles
+    // below are the expected transactions after the second cycle
+    case (cpu_util::Opcode::L):
+        item.idata = cpu_util::make_i_type_instruction(cpu_util::Opcode::L, f3,
+                                                       rd, imm, rs1);
+        item.data = data;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr + 4;
+        exp_item.addr = rs1_val + imm_12_signed_extended;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+
+    case (cpu_util::Opcode::S):
+        item.idata = cpu_util::make_s_type_instruction(cpu_util::Opcode::S, f3,
+                                                       rs1, rs2, imm);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr;
+        exp_item.addr = rs1_val + imm_12_signed_extended;
+        exp_item.wr = true;
+        exp_item.wdata = rs2_val;
+        break;
+
+    case (cpu_util::Opcode::B):
+        item.idata = cpu_util::make_s_type_instruction(cpu_util::Opcode::B, f3,
+                                                       rs1, rs2, imm);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+
+        switch (f3) {
+        case (cpu_util::F3::BEQ):
+            if (rs1_val == rs2_val)
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        case (cpu_util::F3::BNE):
+            if (rs1_val != rs2_val)
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        case (cpu_util::F3::BLT):
+            if (static_cast<int>(rs1_val) < static_cast<int>(rs2_val))
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        case (cpu_util::F3::BGE):
+            if (static_cast<int>(rs1_val) >= static_cast<int>(rs2_val))
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        case (cpu_util::F3::BLTU):
+            if (rs1_val < rs2_val)
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        case (cpu_util::F3::BGEU):
+            if (rs1_val >= rs2_val)
+                baddr = cur_iaddr + imm_12_signed_extended;
+            else
+                baddr = cur_iaddr + 4;
+            break;
+        default:
+            break;
+        }
+        exp_item.addr = 0;
+        exp_item.iaddr = baddr;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+
+    // not implemented, set to NOP
+    case (cpu_util::Opcode::F):
+    case (cpu_util::Opcode::E):
+    default:
+        item.idata = cpu_util::make_i_type_instruction(
+            cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0);
+        item.data = 0;
+        item.rst_n = true;
+
+        exp_item = item;
+        exp_item.iaddr = cur_iaddr + 4;
+        exp_item.addr = 0;
+        exp_item.wr = false;
+        exp_item.wdata = 0;
+        break;
+    }
+}

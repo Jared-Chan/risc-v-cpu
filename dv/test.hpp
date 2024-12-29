@@ -56,7 +56,7 @@ class base_test : public uvm::uvm_test {
 
         seq->start(env->agent->sequencer);
 
-        wait(5, sc_core::SC_MS);
+        /*wait(5, sc_core::SC_MS);*/
 
         std::cout << sc_core::sc_time_stamp() << ": " << get_full_name()
                   << " end phase: " << phase.get_name() << std::endl;

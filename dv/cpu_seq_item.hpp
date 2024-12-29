@@ -6,6 +6,7 @@
 #include <systemc>
 #include <uvm>
 
+// Transaction object used by drivers at CPU interface
 class cpu_seq_item : public uvm::uvm_sequence_item {
   public:
     cpu_seq_item(const std::string &name = "cpu_seq_item")

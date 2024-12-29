@@ -5,6 +5,7 @@
 #include <uvm>
 
 #include "cpu_seq_item.hpp"
+#include "cpu_util.hpp"
 #include "uvmsc/macros/uvm_message_defines.h"
 
 class cpu_scoreboard : public uvm::uvm_scoreboard {
@@ -25,6 +26,9 @@ class cpu_scoreboard : public uvm::uvm_scoreboard {
             str << " expected iaddr: 0x" << std::hex << 0;
             UVM_ERROR(this->get_name(), str.str());
         }
+        std::ostringstream str;
+        cpu_util::print_instruction(item, str);
+        UVM_INFO(get_type_name(),str.str(), uvm::UVM_INFO);
     }
 
     virtual void report_phase(uvm::uvm_phase &phase) {

@@ -1,6 +1,9 @@
 #ifndef CPU_SEQUENCE
 #define CPU_SEQUENCE
 
+#include "cpu_scenario_item.hpp"
+#include "cpu_util.hpp"
+#include <cstdint>
 #include <systemc>
 #include <uvm>
 
@@ -15,39 +18,55 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
     void body() {
         REQ *req;
         RSP *rsp;
-        rsp = new RSP();
+        RSP *exp_rsp;
+
+        bool error;
 
         UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
 
-        req = new REQ();
-        req->rst_n = false;
+        // item.rand();
+        item.iaddr = 0x30;
+        item.generate_instructions();
 
-        this->start_item(req);
-        this->finish_item(req);
-        this->get_response(rsp);
+        while (item.has_next_instruction()) {
+            req = new REQ();
+            rsp = new RSP();
+            exp_rsp = new RSP();
+            error = false;
 
-        delete req;
+            item.get_next_instruction(*req, *exp_rsp);
+            this->start_item(req);
+            this->finish_item(req);
+            this->get_response(rsp);
 
-        req = new REQ();
-        req->rst_n = true;
-
-        this->start_item(req);
-        this->finish_item(req);
-        this->get_response(rsp);
-
-        delete req;
-
-        if (rsp->iaddr != 0) {
-            std::ostringstream str;
-            str << "Error, actual iaddr: 0x" << std::hex << rsp->iaddr;
-            str << " expected iaddr: 0x" << std::hex << 0;
-            UVM_ERROR(this->get_name(), str.str());
+            if (!cpu_util::is_nop(*req) && !cpu_util::is_nop(*exp_rsp)) {
+                if ((req->idata & 0x3F) ==
+                        static_cast<std::uint32_t>(cpu_util::Opcode::L) ||
+                    (req->idata & 0x3F) ==
+                        static_cast<std::uint32_t>(cpu_util::Opcode::S)) {
+                    error =
+                        !(rsp->iaddr == exp_rsp->iaddr &&
+                          rsp->addr == exp_rsp->addr &&
+                          rsp->data == exp_rsp->data && rsp->wr == exp_rsp->wr);
+                } else {
+                    error = !(rsp->iaddr == exp_rsp->iaddr &&
+                              rsp->wr == exp_rsp->wr);
+                }
+            }
+            if (error) {
+                UVM_ERROR(this->get_name(), "Unexpected response. ");
+            }
+            delete req;
+            delete rsp;
+            delete exp_rsp;
         }
-        
-        delete rsp;
 
         UVM_INFO(this->get_name(), "Finishing sequence", uvm::UVM_MEDIUM);
     }
+
+  protected:
+    int length;
+    cpu_scenario_item item;
 };
 
 #endif

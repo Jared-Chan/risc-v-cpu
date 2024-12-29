@@ -27,6 +27,9 @@ dv/cpu_scoreboard.hpp
 dv/cpu_seq_item.hpp
 dv/cpu_sequence.hpp
 dv/cpu_sequencer.hpp
+dv/cpu_scenario_item.hpp
+dv/cpu_util.hpp
+dv/cpu_util.cpp
 )
 
 target_link_libraries(sim PRIVATE dut)
