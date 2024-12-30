@@ -5,6 +5,7 @@
 #include "Vcpu.h"
 #include "cpu_if.hpp"
 
+#include "crave/ConstrainedRandom.hpp"
 #include "test.hpp"
 
 int sc_main(int, char *[]) {
@@ -22,6 +23,8 @@ int sc_main(int, char *[]) {
     dut->clk.bind(cif->clk);
 
     uvm::uvm_config_db<cpu_if *>::set(0, "*", "vif", cif);
+
+    crave::init("crave.cfg");
 
     uvm::run_test("base_test");
 

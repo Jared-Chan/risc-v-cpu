@@ -32,7 +32,10 @@ class base_test : public uvm::uvm_test {
         uvm::uvm_config_db<cpu_if *>::get(this, "*.cif1.*", "vif", vif);
     }
 
-    void end_of_elaboration_phase(uvm::uvm_phase &phase) {}
+    void end_of_elaboration_phase(uvm::uvm_phase &phase) {
+        UVM_INFO(get_type_name(), "Test topology :\n" + this->sprint(),
+                 uvm::UVM_LOW);
+    }
 
     void start_of_simulation_phase(uvm::uvm_phase &phase) {}
 

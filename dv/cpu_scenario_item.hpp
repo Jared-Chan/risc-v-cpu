@@ -3,7 +3,12 @@
 
 #include "cpu_seq_item.hpp"
 #include "cpu_util.hpp"
+#include "crave/experimental/Constraint.hpp"
+#include "crave/experimental/Object.hpp"
+#include "crave/experimental/Variable.hpp"
+#include "uvm_randomized_sequence_item.h"
 #include "uvmsc/macros/uvm_object_defines.h"
+#include <crave2uvm.h>
 #include <cstdint>
 #include <queue>
 #include <systemc>
@@ -11,10 +16,10 @@
 #include <uvm>
 
 // Transaction object used by sequences to generate cpu_seq_item
-class cpu_scenario_item : public uvm::uvm_sequence_item {
+class cpu_scenario_item : public uvm_randomized_sequence_item {
   public:
-    cpu_scenario_item(const std::string &name = "cpu_scenario_item")
-        : uvm::uvm_sequence_item(name) {
+    cpu_scenario_item(crave::crv_object_name name = "cpu_scenario_item")
+        : uvm_randomized_sequence_item(name) {
         nop.idata = cpu_util::make_i_type_instruction(
             cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0);
         nop.data = 0;
@@ -30,18 +35,38 @@ class cpu_scenario_item : public uvm::uvm_sequence_item {
     UVM_OBJECT_UTILS(cpu_scenario_item);
 
     // randomized values
-    cpu_util::Opcode opcode;
-    cpu_util::F7 funct7;
-    cpu_util::F3 funct3;
-    std::uint8_t rs1;
-    std::uint8_t rs2;
-    std::uint8_t rd;
-    std::uint32_t rs1_val;
-    std::uint32_t rs2_val;
-    std::uint32_t imm;
-    std::uint32_t data;
-    std::uint32_t addr;
-    std::uint32_t iaddr;
+    crave::crv_variable<std::uint8_t> r_opcode;
+    crave::crv_variable<std::uint8_t> r_funct7;
+    crave::crv_variable<std::uint8_t> r_funct3;
+    crave::crv_variable<std::uint8_t> r_rs1;
+    crave::crv_variable<std::uint8_t> r_rs2;
+    crave::crv_variable<std::uint8_t> r_rd;
+    crave::crv_variable<std::uint32_t> r_rs1_val;
+    crave::crv_variable<std::uint32_t> r_rs2_val;
+    crave::crv_variable<std::uint32_t> r_imm;
+    crave::crv_variable<std::uint32_t> r_data;
+    crave::crv_variable<std::uint32_t> r_addr;
+    crave::crv_variable<std::uint32_t> r_iaddr;
+
+    crave::crv_constraint opcode_range{crave::inside(
+        r_opcode(),
+        // copied from cpu_util.hpp
+        // random enum doesn't work properly yet
+        std::set<std::uint8_t>{0b0110111, 0b0010111, 0b1101111, 0b1100111,
+                               0b1100011, 0b0000011, 0b0100011, 0b0010011,
+                               0b0110011, 0b0001111, 0b1110011})};
+
+    crave::crv_constraint funct7_range{crave::inside(
+        r_funct7(), std::set<std::uint8_t>{0b0, 0b0100000, 0b0, 0b0100000, 0})};
+
+    crave::crv_constraint funct3_range{crave::inside(
+        r_funct3(), std::set<std::uint8_t>{
+                        0b000, 0b001, 0b100, 0b101, 0b110, 0b111, 0b000, 0b001,
+                        0b010, 0b100, 0b101, 0b000, 0b001, 0b010, 0b000, 0b010,
+                        0b011, 0b100, 0b110, 0b111, 0b001, 0b101, 0})};
+
+    crave::crv_constraint reg_range{r_rs1() < 32 && r_rs2() < 32 &&
+                                    r_rd() < 32};
 
     // calculated values
     std::uint32_t rd_val;
@@ -77,6 +102,25 @@ class cpu_scenario_item : public uvm::uvm_sequence_item {
          * registered in while the last action is registered out.
          *
          */
+
+        r_opcode.randomize();
+        r_opcode.randomize();
+        r_opcode.randomize();
+        r_rs1.randomize();
+        r_rs1.randomize();
+
+        cpu_util::Opcode opcode{static_cast<cpu_util::Opcode>(r_opcode.get())};
+        cpu_util::F7 funct7{static_cast<cpu_util::F7>(r_funct7.get())};
+        cpu_util::F3 funct3{static_cast<cpu_util::F3>(r_funct3.get())};
+        std::uint8_t rs1{r_rs1.get()};
+        std::uint8_t rs2{r_rs2.get()};
+        std::uint8_t rd{r_rd.get()};
+        std::uint32_t rs1_val{r_rs1_val.get()};
+        std::uint32_t rs2_val{r_rs2_val.get()};
+        std::uint32_t imm{r_imm.get()};
+        std::uint32_t data{r_data.get()};
+        std::uint32_t addr{r_addr.get()};
+        std::uint32_t iaddr{r_iaddr.get()};
 
         // JAL
         cpu_seq_item jal, jal_exp;
@@ -342,21 +386,25 @@ class cpu_scenario_item : public uvm::uvm_sequence_item {
     virtual void do_copy(const uvm::uvm_object *rhs) {
         const cpu_scenario_item *rhs_ =
             dynamic_cast<const cpu_scenario_item *>(rhs);
-        opcode = rhs_->opcode;
-        funct7 = rhs_->funct7;
-        funct3 = rhs_->funct3;
-        rs1 = rhs_->rs1;
-        rs2 = rhs_->rs2;
-        rd = rhs_->rd;
-        imm = rhs_->imm;
+        r_opcode = rhs_->r_opcode;
+        r_funct7 = rhs_->r_funct7;
+        r_funct3 = rhs_->r_funct3;
+        r_rs1 = rhs_->r_rs1;
+        r_rs2 = rhs_->r_rs2;
+        r_rs1_val = rhs_->r_rs1_val;
+        r_rs2_val = rhs_->r_rs2_val;
+        r_rd = rhs_->r_rd;
+        r_imm = rhs_->r_imm;
     }
 
     virtual bool do_compare(const uvm::uvm_object *rhs) const {
         const cpu_scenario_item *rhs_ =
             dynamic_cast<const cpu_scenario_item *>(rhs);
-        return (opcode == rhs_->opcode && funct7 == rhs_->funct7 &&
-                funct3 == rhs_->funct3 && rs1 == rhs_->rs1 &&
-                rs2 == rhs_->rs2 && rd == rhs_->rd && imm == rhs_->imm);
+        return (r_opcode == rhs_->r_opcode && r_funct7 == rhs_->r_funct7 &&
+                r_funct3 == rhs_->r_funct3 && r_rs1 == rhs_->r_rs1 &&
+                r_rs1_val == rhs_->r_rs1_val && r_rs2_val == rhs_->r_rs2_val &&
+                r_rs2 == rhs_->r_rs2 && r_rd == rhs_->r_rd &&
+                r_imm == rhs_->r_imm);
     }
 };
 
