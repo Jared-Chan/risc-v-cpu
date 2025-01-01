@@ -159,36 +159,51 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     // Limit of TB, destination must be far away from test instruction range
     crave::crv_constraint c_b_destination_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B),
-        r_imm() % 4 == 0 &&
-            ((r_imm() & 0x1FFE) > r_iaddr() + 0x20 ||
-             (r_imm() & 0x1FFE) + 0x20 < r_iaddr()) &&
-            ((r_imm() & 0x1FFE) > 0) &&
-            ((r_imm() | 0xFFFFE000) > r_iaddr() + 0x20 || // signed extended
-             (r_imm() | 0xFFFFE000) + 0x20 < r_iaddr()))};
+        r_imm() % 4 == 0)};
+
+    crave::crv_constraint c_b_destination_val{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B) &&
+            ((r_imm() & 0x1000) == 0),
+        (r_imm() & 0x1FFE) > 0x20)};
+
+    crave::crv_constraint c_b_destination_val_signed{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B) &&
+            ((r_imm() & 0x1000) == 0x1000),
+        ((r_imm() | 0xFFFFE000) < (0xFFFFFFFF - 0x20)))};
 
     // Limitation of TB, in order to enforce instruction access ordering
     crave::crv_constraint c_iaddr_start{r_iaddr() > 11};
 
-    // J destination should not be among test instructions
     crave::crv_constraint c_jalr_iaddr_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR),
         ((r_imm() + r_rs1_val()) % 4 == 0) &&
-            ((r_imm() + r_rs2_val()) % 4 == 0) && // if rs1 == rs2
-            ((((r_imm() + r_rs1_val()) & 0xfff) > r_iaddr() + 0x20) ||
-             (((r_imm() + r_rs1_val()) & 0xfff) + 0x20 < r_iaddr())) &&
-            (((r_imm() + r_rs1_val) & 0xfff) > 0) &&
-            ((((r_imm() + r_rs1_val()) | 0xfffff000) > r_iaddr() + 0x20) ||
-             (((r_imm() + r_rs1_val()) | 0xfffff000) + 0x20 < r_iaddr())))};
+            ((r_imm() + r_rs2_val()) % 4 == 0))}; // if rs1 == rs2
+
+    // J destination should not be among test instructions
+    crave::crv_constraint c_jalr_iaddr_val{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR) &&
+            ((r_imm() & 0x800) == 0),
+        (((r_imm() & 0xfff) + r_rs1_val()) > r_iaddr() + 0x20))};
+
+    crave::crv_constraint c_jalr_iaddr_val_signed{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR) &&
+            ((r_imm() & 0x800) == 0x800),
+        (((r_imm() | 0xfffff000) + r_rs1_val()) <
+         0xFFFFFFFF - (r_iaddr() + 0x20)))};
 
     crave::crv_constraint c_jal_iaddr_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JAL),
-        (r_imm() % 4 == 0) &&
-            (((r_imm() & 0x1FFFFF) > r_iaddr() + 0x20) ||
-             ((r_imm() & 0x1FFFFF) + 0x20 < r_iaddr())) &&
-            (r_imm() & 0x1FFFFF) > 0 && 
-            (((r_imm() & 0xFFE00000) > r_iaddr() + 0x20) ||
-             ((r_imm() & 0xFFE00000) + 0x20 < r_iaddr()))
-            )};
+        (r_imm() % 4 == 0))};
+
+    crave::crv_constraint c_jal_iaddr_val{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JAL) &&
+            ((r_imm() & 0x100000) == 0),
+        (r_imm() & 0x1FFFFF) > r_iaddr() + 0x20)};
+
+    crave::crv_constraint c_jal_iaddr_val_signed{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JAL) &&
+            ((r_imm() & 0x100000) == 0x100000),
+        ((r_imm() | 0xFFE00000) < 0xFFFFFFFF - (r_iaddr() + 0x20)))};
 
     // TODO test loading and storing other widths
     crave::crv_constraint c_load_store_word{crave::if_then(
@@ -325,8 +340,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         first_instruction = true;
         instruction_addresses = std::queue<std::uint32_t>{};
         current_requested_instruction_idx = 0;
-        imem.clear();
-        dmem.clear();
+        imem = std::map<std::uint32_t, cpu_seq_item>{};
+        dmem = std::map<std::uint32_t, cpu_seq_item>{};
+
+        std::cout << "here\n";
 
         cpu_util::Opcode opcode{static_cast<cpu_util::Opcode>(r_opcode.get())};
         cpu_util::F7 funct7{static_cast<cpu_util::F7>(r_funct7.get())};
@@ -340,6 +357,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         std::uint32_t data{r_data.get()};
         std::uint32_t addr{r_addr.get()};
         std::uint32_t iaddr{r_iaddr.get()};
+        std::cout << "here\n";
 
         if (opcode == cpu_util::Opcode::JALR && (((rs1_val + imm) % 4) != 0)) {
             UVM_WARNING(this->get_name(),
@@ -360,6 +378,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                   << ", imm: " << imm << ", data: " << data
                   << ", addr: " << addr << ", iaddr: " << iaddr << ". \n";
 
+        std::cout << "here\n";
         std::uint32_t cur_iaddr = 0;
         std::uint32_t next_iaddr;
         // JAL
@@ -385,6 +404,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         str << "Made JAL, next addr: " << std::hex << cur_iaddr;
         UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
+        std::cout << "here\n";
         // setup registers
         // rs1
         // adjust rs1_val to account for the case when rs1_val[11] == 1,
@@ -548,7 +568,8 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 break;
             case (cpu_util::F3::SR):
                 rd_val = rs1_val >> imm_shamt;
-                if (funct7 == cpu_util::F7::SRA && ((rs1_val >> 31 & 1) == 1))
+                if (funct7 == cpu_util::F7::SRA && ((rs1_val >> 31 & 1) == 1) &&
+                    imm_shamt > 0)
                     rd_val |= (0xFFFFFFFF >> (32 - imm_shamt))
                               << (32 - imm_shamt);
                 break;

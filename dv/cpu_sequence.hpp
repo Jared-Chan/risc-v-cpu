@@ -2,9 +2,7 @@
 #define CPU_SEQUENCE
 
 #include "cpu_scenario_item.hpp"
-#include "cpu_util.hpp"
 #include "uvmsc/base/uvm_object_globals.h"
-#include <cstdint>
 #include <systemc>
 #include <uvm>
 
@@ -24,7 +22,7 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
         bool error, first_instruction;
 
         UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
-        for (int i = 0; i < 1000; ++i) {
+        for (int i = 0; i < 10000; ++i) {
             UVM_INFO(this->get_name(), "Starting a new scenario", uvm::UVM_MEDIUM);
 
             if (!item.randomize()) {
