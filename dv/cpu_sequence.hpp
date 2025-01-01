@@ -24,35 +24,21 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
         bool error, first_instruction;
 
         UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 1000; ++i) {
+            UVM_INFO(this->get_name(), "Starting a new scenario", uvm::UVM_MEDIUM);
 
             if (!item.randomize()) {
-                UVM_INFO(this->get_name(), "Randomization failed.",
-                         uvm::UVM_INFO);
-            } else {
-                UVM_INFO(this->get_name(), "Randomization succeeded.",
-                         uvm::UVM_INFO);
+                UVM_ERROR(this->get_name(), "Randomization failed.");
+                continue;
             }
-            /*item.r_iaddr() = 0x30;*/
             item.generate_instructions();
             
-            std::ostringstream info_instr_len;
-            info_instr_len << "Total instructions in current sequence ";
-            info_instr_len << item.instruction_addresses.size();
-            UVM_INFO(this->get_name(), info_instr_len.str(), uvm::UVM_MEDIUM);
-
             while (item.has_next_instruction()) {
                 if (req)
                     delete req;
                 req = new REQ();
 
                 item.get_next_instruction(*req, *rsp);
-
-                /*std::cout << std::endl;*/
-                /*std::ostringstream str;*/
-                /*str << "\nCurrent req: \n";*/
-                /*cpu_util::print_instruction(*req, str);*/
-                /*UVM_INFO(get_type_name(), str.str(), uvm::UVM_INFO);*/
 
                 this->start_item(req);
                 this->finish_item(req);

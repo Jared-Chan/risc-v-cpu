@@ -14,6 +14,7 @@
 #include <crave2uvm.h>
 #include <cstdint>
 #include <queue>
+#include <sstream>
 #include <systemc>
 #include <utility>
 #include <uvm>
@@ -110,10 +111,17 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     crave::crv_constraint c_opcode_range{crave::inside(r_opcode(), u8_opcodes)};
 
     // TODO remove
-    crave::crv_constraint c_opcode_val{
-        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RR)};
-    crave::crv_constraint c_f3_val{
-        r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::SLL)};
+    /*crave::crv_constraint c_opcode_val{*/
+    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B)};*/
+    /*crave::crv_constraint c_f3_val{*/
+    /*    r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::BLT)};*/
+    /*crave::crv_constraint c_imm_val{r_imm() == 0x1fffe8};*/
+    /*crave::crv_constraint c_rs1_val_val{r_rs1_val() == 0x101040a};*/
+    /*crave::crv_constraint c_rs2_val_val{r_rs2_val() == 0x2000003};*/
+    /*crave::crv_constraint c_rs1_val{r_rs1() == 0x7};*/
+    /*crave::crv_constraint c_rs2_val{r_rs2() == 0x10};*/
+    /*crave::crv_constraint c_rd_val{r_rd() == 0x2};*/
+    // remove end
 
     crave::crv_constraint c_funct7_range{crave::inside(r_funct7(), u8_f7)};
 
@@ -152,14 +160,35 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     crave::crv_constraint c_b_destination_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B),
         r_imm() % 4 == 0 &&
-            (r_imm() > r_iaddr() + 0x20 || r_imm() < r_iaddr() - 0x20))};
+            ((r_imm() & 0x1FFE) > r_iaddr() + 0x20 ||
+             (r_imm() & 0x1FFE) + 0x20 < r_iaddr()) &&
+            ((r_imm() & 0x1FFE) > 0) &&
+            ((r_imm() | 0xFFFFE000) > r_iaddr() + 0x20 || // signed extended
+             (r_imm() | 0xFFFFE000) + 0x20 < r_iaddr()))};
 
     // Limitation of TB, in order to enforce instruction access ordering
     crave::crv_constraint c_iaddr_start{r_iaddr() > 11};
 
+    // J destination should not be among test instructions
     crave::crv_constraint c_jalr_iaddr_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR),
-        (r_imm() + r_rs1_val()) % 4 == 0)};
+        ((r_imm() + r_rs1_val()) % 4 == 0) &&
+            ((r_imm() + r_rs2_val()) % 4 == 0) && // if rs1 == rs2
+            ((((r_imm() + r_rs1_val()) & 0xfff) > r_iaddr() + 0x20) ||
+             (((r_imm() + r_rs1_val()) & 0xfff) + 0x20 < r_iaddr())) &&
+            (((r_imm() + r_rs1_val) & 0xfff) > 0) &&
+            ((((r_imm() + r_rs1_val()) | 0xfffff000) > r_iaddr() + 0x20) ||
+             (((r_imm() + r_rs1_val()) | 0xfffff000) + 0x20 < r_iaddr())))};
+
+    crave::crv_constraint c_jal_iaddr_align{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JAL),
+        (r_imm() % 4 == 0) &&
+            (((r_imm() & 0x1FFFFF) > r_iaddr() + 0x20) ||
+             ((r_imm() & 0x1FFFFF) + 0x20 < r_iaddr())) &&
+            (r_imm() & 0x1FFFFF) > 0 && 
+            (((r_imm() & 0xFFE00000) > r_iaddr() + 0x20) ||
+             ((r_imm() & 0xFFE00000) + 0x20 < r_iaddr()))
+            )};
 
     // TODO test loading and storing other widths
     crave::crv_constraint c_load_store_word{crave::if_then(
@@ -199,6 +228,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     int current_requested_instruction_idx;
     std::map<std::uint32_t, cpu_seq_item> imem;
     std::map<std::uint32_t, cpu_seq_item> dmem;
+    cpu_seq_item first_instruction_item;
 
     void get_next_instruction(cpu_seq_item &next_item, cpu_seq_item &last_rsp) {
 
@@ -218,7 +248,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
 
         if (first_instruction) {
             first_instruction = false;
-            next_item = imem[0];
+            next_item = first_instruction_item;
             return;
         }
 
@@ -295,8 +325,8 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         first_instruction = true;
         instruction_addresses = std::queue<std::uint32_t>{};
         current_requested_instruction_idx = 0;
-        imem = std::map<std::uint32_t, cpu_seq_item>{};
-        dmem = std::map<std::uint32_t, cpu_seq_item>{};
+        imem.clear();
+        dmem.clear();
 
         cpu_util::Opcode opcode{static_cast<cpu_util::Opcode>(r_opcode.get())};
         cpu_util::F7 funct7{static_cast<cpu_util::F7>(r_funct7.get())};
@@ -347,8 +377,13 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                                    imem, dmem,
                                    next_iaddr // next_iaddr
         );
+        first_instruction_item = imem[0];
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        std::ostringstream str;
+        str.str(std::string());
+        str << "Made JAL, next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
         // setup registers
         // rs1
@@ -373,6 +408,9 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         );
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        str.str(std::string());
+        str << "Made LUI 1, next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
         cpu_util::make_instruction(cpu_util::Opcode::RI, cpu_util::F3::ADDSUB,
                                    cpu_util::F7::ADD,
@@ -390,6 +428,9 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         );
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        str.str(std::string());
+        str << "Made RI 1, next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
         // rs2
         std::uint32_t rs2_val_adjusted =
@@ -410,6 +451,9 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         );
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        str.str(std::string());
+        str << "Made LUI 2, next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
         cpu_seq_item s22, s22_exp;
         cpu_util::make_instruction(cpu_util::Opcode::RI, cpu_util::F3::ADDSUB,
@@ -428,7 +472,14 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         );
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        str.str(std::string());
+        str << "Made RI 2, next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
         // register setup finished
+
+        // if rs1_val gets overwritten
+        if (rs1 == rs2)
+            rs1_val = rs2_val;
 
         // run randomized instruction
         std::uint32_t r_iaddr = cur_iaddr;
@@ -448,11 +499,16 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         );
         cur_iaddr = next_iaddr;
         instruction_addresses.push(cur_iaddr);
+        str.str(std::string());
+        str << "Made TEST instr " << static_cast<std::uint32_t>(opcode)
+            << ", next addr: " << std::hex << cur_iaddr;
+        UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
 
         // check
         std::uint32_t imm_sign_extended;
         std::uint32_t imm_shamt;
         bool rs1_sign_bit;
+
         switch (opcode) {
         // calculate expected rd value
         case (cpu_util::Opcode::JAL):
@@ -526,8 +582,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 rd_val = rs1_val ^ rs2_val;
                 break;
             case (cpu_util::F3::SLL):
-                if (rs2_val > 32) rd_val = 0;
-                else rd_val = rs1_val << rs2_val;
+                if (rs2_val > 32)
+                    rd_val = 0;
+                else
+                    rd_val = rs1_val << rs2_val;
                 break;
             case (cpu_util::F3::SR):
                 if (funct7 == cpu_util::F7::SRA && ((rs1_val >> 31 & 1) == 1)) {
@@ -537,7 +595,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                         rd_val |= (0xFFFFFFFF >> (32 - rs2_val))
                                   << (32 - rs2_val);
                 } else {
-                    rd_val = rs1_val >> rs2_val;
+                    if (rs2_val > 32)
+                        rd_val = 0;
+                    else
+                        rd_val = rs1_val >> rs2_val;
                 }
                 break;
             }
@@ -588,11 +649,22 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             cur_iaddr = next_iaddr;
             instruction_addresses.push(cur_iaddr);
             imem[cur_iaddr] = check_item; // check next iaddr
+            str.str(std::string());
+            str << "Made Store, next addr: " << std::hex << cur_iaddr;
+            UVM_INFO(this->get_name(), str.str(), uvm::UVM_INFO);
             break;
 
         // check correct branched address
         case (cpu_util::Opcode::B):
             imem[cur_iaddr] = check_item;
+            // Extra 2 cycles so the DUT works properly at the start of the next
+            // test due to a case were branch destination is the same as the
+            // second or third address of the next test, and so some
+            // instructions are not executed
+            imem[cur_iaddr + 4] = check_item;
+            imem[cur_iaddr + 8] = check_item;
+            instruction_addresses.push(cur_iaddr + 4);
+            instruction_addresses.push(cur_iaddr + 8);
             should_check_write = false;
             break;
 

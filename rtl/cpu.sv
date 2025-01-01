@@ -371,7 +371,7 @@ module cpu (
                 end
                 `F3_SR: begin
                   if (i_f7 == `F7_SRL) x[i_rd] <= x[i_rs1] >> i_shamt;
-                  else x[i_rd] <= x[i_rs1] >>> i_shamt;
+                  else x[i_rd] <= i_rs1_s >>> i_shamt;
                 end
                 default: begin
                 end
@@ -404,7 +404,7 @@ module cpu (
                 end
                 `F3_SR: begin
                   if (r_f7 == `F7_SRL) x[r_rd] <= x[r_rs1] >> x[r_rs2];
-                  else x[r_rd] <= x[r_rs1] >>> x[r_rs2];
+                  else x[r_rd] <= r_rs1_s >>> x[r_rs2];
                 end
                 default: begin
                 end

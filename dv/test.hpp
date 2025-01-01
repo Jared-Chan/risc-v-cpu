@@ -2,6 +2,7 @@
 #include "cpu_if.hpp"
 #include "cpu_seq_item.hpp"
 #include "cpu_sequence.hpp"
+#include "uvmsc/base/uvm_object_globals.h"
 #include <string>
 #include <systemc>
 #include <uvm>
