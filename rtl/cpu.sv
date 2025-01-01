@@ -10,7 +10,7 @@
 `define OP_L 7'b0000011 // load
 `define OP_S 7'b0100011 // store
 `define OP_RI 7'b0010011 // reg-imm
-`define OP_RR 7'b0110011 // imm-imm
+`define OP_RR 7'b0110011 // reg-reg
 `define OP_F 7'b0001111 // fence
 `define OP_E 7'b1110011 // env
 
@@ -48,6 +48,47 @@
 `define RESET_PC 32'b0
 
 
+//`define DEBUG
+`ifdef DEBUG
+`define PRINT_R_TYPE $strobe("R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
+dec_pc, r_rs1, r_rs2, r_rd, r_f7, r_f3);
+`define PRINT_I_TYPE $strobe("I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h \
+smt=0x%0h",\
+dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
+`define PRINT_S_TYPE $strobe("S type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
+dec_pc, s_rs1, s_rs2, s_f3, s_imm);
+`define PRINT_S_TYPE_2 $strobe("S type cycle 2: dec_pc=0x%0h \
+rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h",\
+dec_pc, s_rs1, ex_s_rs2, ex_s_f3, s_imm);
+`define PRINT_B_TYPE $strobe("B type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
+dec_pc, b_rs1, b_rs2, b_f3, b_imm);
+`define PRINT_U_TYPE $strobe("U type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
+dec_pc, u_rd, u_imm);
+`define PRINT_J_TYPE $strobe("J type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
+dec_pc, j_rd, j_imm);
+`define PRINT_X \
+  $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
+  $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
+  $strobe("  x16=0x%0h x17=0x%0h x18=0x%0h x19=0x%0h x20=0x%0h x21=0x%0h x22=0x%0h x23=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
+  $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]); \
+  $strobe("  pc=0x%0h", pc);
+`define PRINT_STEP $strobe( \
+          "time=%0t opcode=0x%0h pc=0x%0h dec_pc=0x%0h iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h pstate=0x%0h do_d=0x%0h do_e=0x%0h", \
+          $time, opcode, pc, dec_pc, iaddr, idata, addr, data, wdata, wr, pipeline_state, do_decode, do_execute);
+`else
+`define PRINT_R_TYPE
+`define PRINT_I_TYPE
+`define PRINT_S_TYPE
+`define PRINT_S_TYPE_2
+`define PRINT_B_TYPE
+`define PRINT_U_TYPE
+`define PRINT_J_TYPE
+`define PRINT_X
+`define PRINT_STEP
+`endif
+
+
+
 module cpu (
     input logic clk,
     input logic rst_n,
@@ -71,119 +112,130 @@ module cpu (
   logic [`RLEN-1:0] pc;
   assign iaddr = pc;
 
+
+
   /* Decode */
-  logic [6:0] opcode = idata[6:0];
+  logic [6:0] opcode;
 
   // R-type
   logic [6:0] r_f7;
   logic [4:0] r_rs2;
   logic [4:0] r_rs1;
-  logic signed [31:0] r_rs1_s = x[r_rs1];
-  logic signed [31:0] r_rs2_s = x[r_rs2];
+  logic signed [31:0] r_rs1_s;
+  logic signed [31:0] r_rs2_s;
   logic [2:0] r_f3;
   logic [4:0] r_rd;
-  assign {r_f7, r_rs2, r_rs1, r_f3, r_rd} = {
-    idata[31:25], idata[24:20], idata[19:15], idata[14:12], idata[11:7]
-  };
+  assign r_rs1_s = x[r_rs1];
+  assign r_rs2_s = x[r_rs2];
 
   // I-type
   logic [31:0] i_imm;
-  logic signed [31:0] i_imm_s = i_imm;
+  logic signed [31:0] i_imm_s;
   logic [4:0] i_rs1;
-  logic signed [31:0] i_rs1_s = x[i_rs1];
+  logic signed [31:0] i_rs1_s;
   logic [2:0] i_f3;
   logic [4:0] i_rd;
   logic [4:0] i_shamt;
   logic [6:0] i_f7;
-  assign {i_rs1, i_f3, i_rd} = {idata[19:15], idata[14:12], idata[11:7]};
-  assign i_imm = {{21{idata[31]}}, idata[30:25], idata[24:21], idata[20]};
   assign i_shamt = i_imm[4:0];
   assign i_f7 = i_imm[11:5];
+  assign i_imm_s = i_imm;
+  assign i_rs1_s = x[i_rs1];
 
   // S-type
   logic [31:0] s_imm;
-  logic [ 4:0] s_rs1;
-  logic [ 4:0] s_rs2;
-  logic [ 2:0] s_f3;
-  assign {s_rs2, s_rs1, s_f3} = {idata[24:20], idata[19:15], idata[14:12]};
-  assign s_imm                = {{21{idata[31]}}, idata[30:25], idata[11:8], idata[7]};
+  logic [4:0] s_rs1;
+  logic [4:0] s_rs2;
+  logic [2:0] s_f3;
 
   // B-type (~S)
   logic [31:0] b_imm;
   logic [4:0] b_rs1;
   logic [4:0] b_rs2;
-  logic signed [31:0] b_rs1_s = x[b_rs1];
-  logic signed [31:0] b_rs2_s = x[b_rs2];
+  logic signed [31:0] b_rs1_s;
+  logic signed [31:0] b_rs2_s;
   logic [2:0] b_f3;
-  assign {b_rs2, b_rs1, b_f3} = {idata[24:20], idata[19:15], idata[14:12]};
-  assign b_imm                = {{20{idata[31]}}, idata[7], idata[30:25], idata[11:8], 1'b0};
+  assign b_rs1_s = x[b_rs1];
+  assign b_rs2_s = x[b_rs2];
 
   // U-type
   logic [31:0] u_imm;
-  logic [ 4:0] u_rd;
-  assign {u_rd} = {idata[11:7]};
-  assign u_imm  = {idata[31], idata[30:20], idata[19:12], 12'b0};
+  logic [4:0] u_rd;
 
   // J-type
   logic [31:0] j_imm;
-  logic [ 4:0] j_rd;
-  assign {j_rd} = {idata[11:7]};
-  assign j_imm  = {{12{idata[31]}}, idata[19:12], idata[20], idata[30:25], idata[24:21], 1'b0};
+  logic [4:0] j_rd;
+
+
+  logic [31:0] dec_pc;  // pc of decoded instruction
+
+  always_ff @(posedge clk, negedge rst_n) begin : decode
+    if (!rst_n) opcode <= 7'b0;
+    else if (do_decode) begin
+      // pc is the pc of the next instruction
+      // pc - 4 is the pc of the instruction being decoded
+      dec_pc <= pc - 4;
+      opcode <= idata[6:0];
+
+      {r_f7, r_rs2, r_rs1, r_f3, r_rd} <= {
+        idata[31:25], idata[24:20], idata[19:15], idata[14:12], idata[11:7]
+      };
+      // r_rs1_s <= x[idata[19:15]];
+      // r_rs2_s <= x[idata[24:20]];
+
+      {i_rs1, i_f3, i_rd} <= {idata[19:15], idata[14:12], idata[11:7]};
+      i_imm <= {{21{idata[31]}}, idata[30:25], idata[24:21], idata[20]};
+
+      {s_rs2, s_rs1, s_f3} <= {idata[24:20], idata[19:15], idata[14:12]};
+      s_imm <= {{21{idata[31]}}, idata[30:25], idata[11:8], idata[7]};
+
+      {b_rs2, b_rs1, b_f3} <= {idata[24:20], idata[19:15], idata[14:12]};
+      b_imm <= {{20{idata[31]}}, idata[7], idata[30:25], idata[11:8], 1'b0};
+
+      {u_rd} <= {idata[11:7]};
+      u_imm <= {idata[31], idata[30:20], idata[19:12], 12'b0};
+
+      {j_rd} <= {idata[11:7]};
+      j_imm <= {{12{idata[31]}}, idata[19:12], idata[20], idata[30:25], idata[24:21], 1'b0};
+    end
+  end
   /* End Decode */
 
-`ifdef DEBUG
-  `define PRINT_R_TYPE $strobe("R type: rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h", \
-r_rs1, r_rs2, r_rd, r_f7, r_f3);
-  `define PRINT_I_TYPE $strobe("I type: rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h",\
-i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
-  `define PRINT_S_TYPE $strobe("S type: rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-s_rs1, s_rs2, s_f3, s_imm);
-  `define PRINT_B_TYPE $strobe("B type: rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-b_rs1, b_rs2, b_f3, b_imm);
-  `define PRINT_U_TYPE $strobe("U type: rd=0x%0h imm=0x%0h", \
-u_rd, u_imm);
-  `define PRINT_J_TYPE $strobe("J type: rd=0x%0h imm=0x%0h", \
-j_rd, j_imm);
-  `define PRINT_X \
-  $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
-  $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
-  $strobe("  x16=0x%0h x17=0x%0h x18=0x%0h x19=0x%0h x20=0x%0h x21=0x%0h x22=0x%0h x23=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
-  $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]);
-  `define PRINT_STEP $strobe( \
-          "time=%0t opcode=0x%0h pc=0x%0h iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h", \
-          $time, opcode, pc, iaddr, idata, addr, data, wdata, wr);
-`else
-  `define PRINT_R_TYPE
-  `define PRINT_I_TYPE
-  `define PRINT_S_TYPE
-  `define PRINT_B_TYPE
-  `define PRINT_U_TYPE
-  `define PRINT_J_TYPE
-  `define PRINT_X
-  `define PRINT_STEP
-`endif
+  logic [6:0] ex_opcode;
+  logic [2:0] ex_i_f3;
+  logic [4:0] ex_i_rd;
+  logic [4:0] ex_s_rs2;
+  logic [2:0] ex_s_f3;
 
+  /* Pipeline manager */
   typedef enum {
-    IDLE,
-    WAIT_LS
-  } state_e;
-  state_e state;
+    EXECUTE,
+    WAIT_PC,
+    WAIT_DECODE,
+    WAIT_L_S
+  } pipeline_state_e;
 
-  always_ff @(posedge clk, negedge rst_n) begin
+  logic do_decode, do_execute;
+  pipeline_state_e pipeline_state;
+
+  always_ff @(posedge clk, negedge rst_n) begin : execute
     if (!rst_n) begin
       wr <= '0;
       pc <= `RESET_PC;
-      state <= IDLE;
+      do_decode <= '0;
+      do_execute <= '0;
+      pipeline_state <= WAIT_PC;
     end else begin
-
-      wr <= 0;
-      pc <= pc + 4;
-
       `PRINT_STEP
 
-      // Execute
-      case (state)
-        IDLE: begin
+      pc <= pc + 4;
+      do_decode <= '1;
+      do_execute <= '1;
+
+      wr <= 0;
+
+      case (pipeline_state)
+        EXECUTE: begin
           case (opcode)
             `OP_LUI: begin
               `PRINT_U_TYPE
@@ -191,40 +243,81 @@ j_rd, j_imm);
             end
             `OP_AUIPC: begin
               `PRINT_U_TYPE
-              x[u_rd] <= pc + u_imm;
+              x[u_rd] <= dec_pc + u_imm;
             end
             `OP_JAL: begin
               `PRINT_J_TYPE
-              pc <= j_imm;
-              x[j_rd] <= pc + 4;
+              x[j_rd] <= dec_pc + 4;
+              if (j_imm != dec_pc + 4) begin
+                pc <= j_imm;
+                do_decode <= '0;
+                do_execute <= '0;
+                pipeline_state <= WAIT_PC;
+              end
+              // else pc = pc + 4 is valid
               // should check addr alignment
             end
             `OP_JALR: begin
               `PRINT_I_TYPE
-              pc <= (i_imm + x[i_rs1]) & 32'hFFFFFFFE;
-              x[i_rd] <= pc + 4;
+              x[i_rd] <= dec_pc + 4;
               // should check addr alignment
+              if (((i_imm + x[i_rs1]) & 32'hFFFFFFFE) != dec_pc + 4) begin
+                pc <= (i_imm + x[i_rs1]) & 32'hFFFFFFFE;
+                do_decode <= '0;
+                do_execute <= '0;
+                pipeline_state <= WAIT_PC;
+              end
             end
             `OP_B: begin
               `PRINT_B_TYPE
               case (b_f3)
                 `F3_BEQ: begin
-                  if (x[b_rs1] == x[b_rs2]) pc <= pc + b_imm;
+                  if (x[b_rs1] == x[b_rs2]) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 `F3_BNE: begin
-                  if (x[b_rs1] != x[b_rs2]) pc <= pc + b_imm;
+                  if (x[b_rs1] != x[b_rs2]) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 `F3_BLT: begin
-                  if (x[b_rs1] < x[b_rs2]) pc <= pc + b_imm;
+                  if (b_rs1_s < b_rs2_s) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 `F3_BGE: begin
-                  if (x[b_rs1] >= x[b_rs2]) pc <= pc + b_imm;
+                  if (b_rs1_s >= b_rs2_s) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 `F3_BLTU: begin
-                  if (b_rs1_s < b_rs2_s) pc <= pc + b_imm;
+                  if (x[b_rs1] < x[b_rs2]) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 `F3_BGEU: begin
-                  if (b_rs1_s >= b_rs2_s) pc <= pc + b_imm;
+                  if (x[b_rs1] >= x[b_rs2]) begin
+                    pc <= dec_pc + b_imm;
+                    do_decode <= '0;
+                    do_execute <= '0;
+                    pipeline_state <= WAIT_PC;
+                  end
                 end
                 default: begin
                 end
@@ -234,26 +327,35 @@ j_rd, j_imm);
               `PRINT_I_TYPE
               pc <= pc;
               addr <= x[i_rs1] + i_imm;
-              state <= WAIT_LS;
+              do_decode <= '0;
+              do_execute <= '0;
+              pipeline_state <= WAIT_L_S;
+              ex_opcode <= opcode;
+              ex_i_f3 <= i_f3;
+              ex_i_rd <= i_rd;
             end
             `OP_S: begin
-              `PRINT_I_TYPE
+              `PRINT_S_TYPE
               pc <= pc;
-              addr <= x[i_rs1] + i_imm;
-              state <= WAIT_LS;
+              addr <= x[s_rs1] + s_imm;
+              do_decode <= '0;
+              do_execute <= '0;
+              pipeline_state <= WAIT_L_S;
+              ex_opcode <= opcode;
+              ex_s_f3 <= s_f3;
+              ex_s_rs2 <= s_rs2;
             end
             `OP_RI: begin
               `PRINT_I_TYPE
-              `PRINT_X
               case (i_f3)
                 `F3_ADDSUB: begin
                   x[i_rd] <= x[i_rs1] + i_imm;
                 end
                 `F3_SLT: begin
-                  x[i_rd] <= i_rs1_s < i_imm_s ? '1 : '0;
+                  x[i_rd] <= i_rs1_s < i_imm_s ? 32'h0000_0001 : '0;
                 end
                 `F3_SLTU: begin
-                  x[i_rd] <= x[i_rs1] < i_imm ? '1 : '0;
+                  x[i_rd] <= x[i_rs1] < i_imm ? 32'h0000_0001 : '0;
                 end
                 `F3_XOR: begin
                   x[i_rd] <= x[i_rs1] ^ i_imm;
@@ -283,10 +385,10 @@ j_rd, j_imm);
                   else x[r_rd] <= x[r_rs1] - x[r_rs2];
                 end
                 `F3_SLT: begin
-                  x[r_rd] <= r_rs1_s < r_rs2_s ? '1 : '0;
+                  x[r_rd] <= r_rs1_s < r_rs2_s ? 32'h0000_0001 : '0;
                 end
                 `F3_SLTU: begin
-                  x[r_rd] <= x[r_rs1] < x[r_rs2] ? '1 : '0;
+                  x[r_rd] <= x[r_rs1] < x[r_rs2] ? 32'h0000_0001 : '0;
                 end
                 `F3_XOR: begin
                   x[r_rd] <= x[r_rs1] ^ x[r_rs2];
@@ -315,41 +417,55 @@ j_rd, j_imm);
             default: begin
               pc <= pc;
             end
-          endcase
+          endcase  // opcode
         end
-        WAIT_LS: begin
-          state <= IDLE;
-          if (opcode == `OP_L)
-            case (i_f3)
+        WAIT_PC: begin
+          //pc <= pc;
+          do_decode <= '1;
+          do_execute <= '0;
+          pipeline_state <= WAIT_DECODE;
+        end
+        WAIT_DECODE: begin
+          do_decode <= '1;
+          do_execute <= '1;
+          pipeline_state <= EXECUTE;
+        end
+        WAIT_L_S: begin
+          do_decode <= '1;
+          do_execute <= '1;
+          pipeline_state <= EXECUTE;
+          if (ex_opcode == `OP_L)
+            case (ex_i_f3)
               `F3_LB: begin
-                x[i_rd] <= {{24{data[7]}}, data[7:0]};
+                x[ex_i_rd] <= {{24{data[7]}}, data[7:0]};
               end
               `F3_LH: begin
-                x[i_rd] <= {{16{data[15]}}, data[15:0]};
+                x[ex_i_rd] <= {{16{data[15]}}, data[15:0]};
               end
               `F3_LW: begin
-                x[i_rd] <= data;
+                x[ex_i_rd] <= data;
               end
               `F3_LBU: begin
-                x[i_rd] <= {{24'b0}, data[7:0]};
+                x[ex_i_rd] <= {{24'b0}, data[7:0]};
               end
               `F3_LHU: begin
-                x[i_rd] <= {{16'b0}, data[15:0]};
+                x[ex_i_rd] <= {{16'b0}, data[15:0]};
               end
               default: begin
               end
             endcase  // OP_L f3
-          else if (opcode == `OP_S) begin
+          else if (ex_opcode == `OP_S) begin
+            `PRINT_S_TYPE_2
             wr <= '1;
-            case (i_f3)
+            case (ex_s_f3)
               `F3_SB: begin
-                wdata <= {data[31:8], x[s_rs2][7:0]};
+                wdata <= {data[31:8], x[ex_s_rs2][7:0]};
               end
               `F3_SH: begin
-                wdata <= {data[31:16], x[s_rs2][15:0]};
+                wdata <= {data[31:16], x[ex_s_rs2][15:0]};
               end
               `F3_SW: begin
-                wdata <= x[s_rs2];
+                wdata <= x[ex_s_rs2];
               end
               default: begin
               end
@@ -358,9 +474,12 @@ j_rd, j_imm);
         end
         default: begin
         end
-      endcase  // state
+      endcase
+
+
     end
 
+    `PRINT_X
     x[0] <= '0;  // hardwire to 0
   end
 

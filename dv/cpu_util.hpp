@@ -62,9 +62,10 @@ void make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
                       std::uint32_t rs1_val, std::uint32_t rs2_val,
                       std::uint32_t addr, // LOAD/STORE
                       std::uint32_t cur_iaddr,
-
-                      // seq items
-                      cpu_seq_item &item, cpu_seq_item &exp_item);
+                      // mock memory
+                      std::map<std::uint32_t, cpu_seq_item> &imem,
+                      std::map<std::uint32_t, cpu_seq_item> &dmem,
+                      std::uint32_t &next_iaddr);
 
 std::uint32_t make_j_type_instruction(Opcode opcode, std::uint8_t rd,
                                       std::uint32_t imm);

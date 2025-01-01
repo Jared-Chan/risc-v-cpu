@@ -6,6 +6,7 @@
 
 #include "cpu_seq_item.hpp"
 #include "cpu_util.hpp"
+#include "uvmsc/base/uvm_object_globals.h"
 #include "uvmsc/macros/uvm_message_defines.h"
 
 class cpu_scoreboard : public uvm::uvm_scoreboard {

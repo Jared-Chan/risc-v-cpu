@@ -83,7 +83,7 @@ std::uint32_t cpu_util::make_s_type_instruction(cpu_util::Opcode opcode,
     idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
     idata |= (static_cast<std::uint32_t>(rs1) << 15);
     idata |= (static_cast<std::uint32_t>(rs2) << 20);
-    idata |= (imm & 0x7F) << 25;
+    idata |= ((imm & 0xFFF) >> 5) << 25;
 
     return idata;
 }
@@ -97,7 +97,7 @@ std::uint32_t cpu_util::make_b_type_instruction(cpu_util::Opcode opcode,
     std::uint32_t idata = 0;
     idata |= static_cast<std::uint32_t>(opcode);
     idata |= (((static_cast<std::uint32_t>(imm) >> 11) & 1) << 7);
-    idata |= (((static_cast<std::uint32_t>(imm) << 1) & 0xF) << 8);
+    idata |= (((static_cast<std::uint32_t>(imm) >> 1) & 0xF) << 8);
     idata |= (static_cast<std::uint32_t>(f3) & 0x7) << 12;
     idata |= (static_cast<std::uint32_t>(rs1) << 15);
     idata |= (static_cast<std::uint32_t>(rs2) << 20);
@@ -115,11 +115,12 @@ bool cpu_util::is_nop(cpu_seq_item &item) {
     return false;
 }
 
-void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &str) {
+void cpu_util::print_instruction(const cpu_seq_item &item,
+                                 std::ostringstream &str) {
 
-    str << "At 0x" << std::hex << item.iaddr;
+    str << "PC: 0x" << std::hex << item.iaddr << ", I: ";
 
-    cpu_util::Opcode opcode = static_cast<cpu_util::Opcode>(item.idata & 0x3F);
+    cpu_util::Opcode opcode = static_cast<cpu_util::Opcode>(item.idata & 0x7F);
     cpu_util::F3 f3 = static_cast<cpu_util::F3>((item.idata >> 12) & 0x7);
     cpu_util::F7 f7 = static_cast<cpu_util::F7>(item.idata >> 25);
     std::uint32_t riuj_rd = (item.idata >> 7) & 0x1F;
@@ -135,17 +136,18 @@ void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &s
         ((item.idata >> 20) & 0x7E0) | (((item.idata >> 31) & 0x1) << 12) |
         (((item.idata >> 8) & 0xF) << 1) | (((item.idata >> 7) & 0x1) << 11);
     b_imm |= ((b_imm >> 12) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 12);
-    std::uint32_t u_imm = item.idata  & 0xFFFFF000;
-    std::uint32_t j_imm =
-        (((item.idata >> 21) & 0x3FF) << 1) | (((item.idata >> 31) & 0x1) << 20) |
-        (((item.idata >> 12) & 0xFF) << 12) | (((item.idata >> 20) & 0x1) << 11);
+    std::uint32_t u_imm = item.idata & 0xFFFFF000;
+    std::uint32_t j_imm = (((item.idata >> 21) & 0x3FF) << 1) |
+                          (((item.idata >> 31) & 0x1) << 20) |
+                          (((item.idata >> 12) & 0xFF) << 12) |
+                          (((item.idata >> 20) & 0x1) << 11);
     j_imm |= ((j_imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20);
 
     switch (opcode) {
     case (cpu_util::Opcode::JAL):
         str << " JAL to " << std::hex << j_imm;
         str << " with rd 0x" << std::hex << riuj_rd;
-        return;
+        break;
     case (cpu_util::Opcode::JALR):
         str << " JALR with offset 0x" << std::hex << i_imm;
         str << " and rs1 0x" << std::hex << risb_rs1;
@@ -187,7 +189,7 @@ void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &s
         str << " and rd 0x" << std::hex << riuj_rd;
         break;
     case (cpu_util::Opcode::RR):
-        str << " RI ";
+        str << " RR ";
         switch (f3) {
         case (cpu_util::F3::ADDSUB):
             if (f7 == cpu_util::F7::ADD)
@@ -237,7 +239,7 @@ void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &s
     case (cpu_util::Opcode::L):
         str << " L ";
         str << " with imm 0x" << std::hex << i_imm;
-        str << " with width 0x" << std::hex << static_cast<std::uint8_t>(f3);
+        str << " with width 0x" << std::hex << static_cast<unsigned>(f3);
         str << " and rs1 0x" << std::hex << risb_rs1;
         str << " and rd 0x" << std::hex << riuj_rd;
         break;
@@ -245,7 +247,7 @@ void cpu_util::print_instruction(const cpu_seq_item &item, std::ostringstream &s
     case (cpu_util::Opcode::S):
         str << " S ";
         str << " with imm 0x" << std::hex << s_imm;
-        str << " with width 0x" << std::hex << static_cast<std::uint8_t>(f3);
+        str << " with width 0x" << std::hex << static_cast<unsigned>(f3);
         str << " and rs1 0x" << std::hex << risb_rs1;
         str << " and rs2 0x" << std::hex << rsb_rs2;
         break;
@@ -300,36 +302,50 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
 
                                 std::uint32_t addr, std::uint32_t cur_iaddr,
 
-                                // seq items
-                                cpu_seq_item &item, cpu_seq_item &exp_item) {
+                                // mock memory
+                                std::map<std::uint32_t, cpu_seq_item> &imem,
+                                std::map<std::uint32_t, cpu_seq_item> &dmem,
+                                std::uint32_t &next_iaddr) {
+    /* Make instructions and expected data
+     * imem: iaddr -> 
+     *     input to DUT: idata, rst_n
+     * dmem: daddr -> 
+     *     input to DUT: data 
+     *     check DUT output: wr, wdata
+     * No hazard detection.
+     */
 
     std::uint32_t imm_12_signed_extended =
-        ((((imm & 0xFFF) >> 11) & 1) == 0 ? 0 : 0xFFFFF000);
-    std::uint32_t baddr = cur_iaddr;
+        (imm & 0xFFF) | ((((imm & 0xFFF) >> 11) & 1) == 0 ? 0 : 0xFFFFF000);
+
+    std::uint32_t imm_b_12_signed_extended =
+        (imm & 0x1FFE) | ((((imm & 0x1FFF) >> 12) & 1) == 0 ? 0 : 0xFFFFE000);
+
+    std::uint32_t baddr = cur_iaddr; // addr after branch, to be set
+
+    cpu_seq_item item, exp_item;
+    item.rst_n = true;
+
     switch (opcode) {
     case (cpu_util::Opcode::JAL):
         item.idata =
             cpu_util::make_j_type_instruction(cpu_util::Opcode::JAL, rd, imm);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = imm;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
-        return;
+        next_iaddr = imm & 0x001FFFFE |
+                         (((imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20));
+
+        break;
     case (cpu_util::Opcode::JALR):
         item.idata = cpu_util::make_i_type_instruction(cpu_util::Opcode::JALR,
                                                        f3, rd, imm, rs1);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = imm_12_signed_extended + rs1_val;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = imm_12_signed_extended + rs1_val;
         break;
     case (cpu_util::Opcode::RI):
         switch (f3) {
@@ -350,36 +366,27 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
         }
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr + 4;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = cur_iaddr + 4;
         break;
     case (cpu_util::Opcode::RR):
         item.idata = cpu_util::make_r_type_instruction(cpu_util::Opcode::RR, f3,
                                                        f7, rd, rs1, rs2);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr + 4;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = cur_iaddr + 4;
         break;
     case (cpu_util::Opcode::LUI):
     case (cpu_util::Opcode::AUIPC):
         item.idata = cpu_util::make_u_type_instruction(opcode, rd, imm);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr + 4;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = cur_iaddr + 4;
         break;
 
     // L and S take 2 cycles
@@ -389,12 +396,14 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
                                                        rd, imm, rs1);
         item.data = data;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr + 4;
+        next_iaddr = cur_iaddr + 4;
+
         exp_item.addr = rs1_val + imm_12_signed_extended;
         exp_item.wr = false;
         exp_item.wdata = 0;
+        dmem[exp_item.addr] = exp_item;
         break;
 
     case (cpu_util::Opcode::S):
@@ -402,66 +411,63 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
                                                        rs1, rs2, imm);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr;
+        next_iaddr = cur_iaddr + 4;
         exp_item.addr = rs1_val + imm_12_signed_extended;
         exp_item.wr = true;
         exp_item.wdata = rs2_val;
+        dmem[exp_item.addr] = exp_item;
         break;
 
     case (cpu_util::Opcode::B):
-        item.idata = cpu_util::make_s_type_instruction(cpu_util::Opcode::B, f3,
+        item.idata = cpu_util::make_b_type_instruction(cpu_util::Opcode::B, f3,
                                                        rs1, rs2, imm);
         item.data = 0;
         item.rst_n = true;
-
-        exp_item = item;
+        item.iaddr = cur_iaddr;
 
         switch (f3) {
         case (cpu_util::F3::BEQ):
             if (rs1_val == rs2_val)
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         case (cpu_util::F3::BNE):
             if (rs1_val != rs2_val)
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         case (cpu_util::F3::BLT):
             if (static_cast<int>(rs1_val) < static_cast<int>(rs2_val))
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         case (cpu_util::F3::BGE):
             if (static_cast<int>(rs1_val) >= static_cast<int>(rs2_val))
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         case (cpu_util::F3::BLTU):
             if (rs1_val < rs2_val)
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         case (cpu_util::F3::BGEU):
             if (rs1_val >= rs2_val)
-                baddr = cur_iaddr + imm_12_signed_extended;
+                baddr = cur_iaddr + imm_b_12_signed_extended;
             else
                 baddr = cur_iaddr + 4;
             break;
         default:
             break;
         }
-        exp_item.addr = 0;
-        exp_item.iaddr = baddr;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = baddr;
         break;
 
     // not implemented, set to NOP
@@ -472,12 +478,11 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
             cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0);
         item.data = 0;
         item.rst_n = true;
+        item.iaddr = cur_iaddr;
 
-        exp_item = item;
-        exp_item.iaddr = cur_iaddr + 4;
-        exp_item.addr = 0;
-        exp_item.wr = false;
-        exp_item.wdata = 0;
+        next_iaddr = cur_iaddr + 4;
         break;
     }
+
+    imem[item.iaddr] = item;
 }

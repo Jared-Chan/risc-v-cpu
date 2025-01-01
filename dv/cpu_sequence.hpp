@@ -17,14 +17,14 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
     UVM_OBJECT_PARAM_UTILS(cpu_sequence<REQ, RSP>);
 
     void body() {
-        REQ *req;
-        RSP *rsp;
-        RSP *exp_rsp;
+        REQ *req {};
+        RSP *rsp {};
+        RSP *exp_rsp {};
 
-        bool error;
+        bool error, first_instruction;
 
         UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
-        for (int i = 0; i < 2; ++i) {
+        for (int i = 0; i < 100; ++i) {
 
             if (!item.randomize()) {
                 UVM_INFO(this->get_name(), "Randomization failed.",
@@ -35,38 +35,33 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
             }
             /*item.r_iaddr() = 0x30;*/
             item.generate_instructions();
+            
+            std::ostringstream info_instr_len;
+            info_instr_len << "Total instructions in current sequence ";
+            info_instr_len << item.instruction_addresses.size();
+            UVM_INFO(this->get_name(), info_instr_len.str(), uvm::UVM_MEDIUM);
 
             while (item.has_next_instruction()) {
+                if (req)
+                    delete req;
                 req = new REQ();
-                rsp = new RSP();
-                exp_rsp = new RSP();
-                error = false;
 
-                item.get_next_instruction(*req, *exp_rsp);
+                item.get_next_instruction(*req, *rsp);
+
+                /*std::cout << std::endl;*/
+                /*std::ostringstream str;*/
+                /*str << "\nCurrent req: \n";*/
+                /*cpu_util::print_instruction(*req, str);*/
+                /*UVM_INFO(get_type_name(), str.str(), uvm::UVM_INFO);*/
+
                 this->start_item(req);
                 this->finish_item(req);
-                this->get_response(rsp);
 
-                if (!cpu_util::is_nop(*req) && !cpu_util::is_nop(*exp_rsp)) {
-                    if ((req->idata & 0x3F) ==
-                            static_cast<std::uint32_t>(cpu_util::Opcode::L) ||
-                        (req->idata & 0x3F) ==
-                            static_cast<std::uint32_t>(cpu_util::Opcode::S)) {
-                        error = !(rsp->iaddr == exp_rsp->iaddr &&
-                                  rsp->addr == exp_rsp->addr &&
-                                  rsp->data == exp_rsp->data &&
-                                  rsp->wr == exp_rsp->wr);
-                    } else {
-                        error = !(rsp->iaddr == exp_rsp->iaddr &&
-                                  rsp->wr == exp_rsp->wr);
-                    }
-                }
-                if (error) {
-                    UVM_ERROR(this->get_name(), "Unexpected response. ");
-                }
-                delete req;
-                delete rsp;
-                delete exp_rsp;
+                if (rsp)
+                    delete rsp;
+                rsp = new RSP();
+
+                this->get_response(rsp);
             }
         }
 

@@ -6,7 +6,10 @@
 #include "crave/experimental/Constraint.hpp"
 #include "crave/experimental/Object.hpp"
 #include "crave/experimental/Variable.hpp"
+#include "crave/frontend/Operators.hpp"
 #include "uvm_randomized_sequence_item.h"
+#include "uvmsc/base/uvm_object_globals.h"
+#include "uvmsc/macros/uvm_message_defines.h"
 #include "uvmsc/macros/uvm_object_defines.h"
 #include <crave2uvm.h>
 #include <cstdint>
@@ -14,6 +17,61 @@
 #include <systemc>
 #include <utility>
 #include <uvm>
+
+// random enum doesn't work properly yet
+static std::uint8_t u8_opcodes[9] = {
+    static_cast<std::uint8_t>(cpu_util::Opcode::LUI),
+    static_cast<std::uint8_t>(cpu_util::Opcode::AUIPC),
+    static_cast<std::uint8_t>(cpu_util::Opcode::JAL),
+    static_cast<std::uint8_t>(cpu_util::Opcode::JALR),
+    static_cast<std::uint8_t>(cpu_util::Opcode::B),
+    static_cast<std::uint8_t>(cpu_util::Opcode::L),
+    static_cast<std::uint8_t>(cpu_util::Opcode::S),
+    static_cast<std::uint8_t>(cpu_util::Opcode::RI),
+    static_cast<std::uint8_t>(cpu_util::Opcode::RR),
+    /*static_cast<std::uint8_t>(cpu_util::Opcode::F),*/
+    /*static_cast<std::uint8_t>(cpu_util::Opcode::E)*/
+};
+
+static std::uint8_t u8_f7[5] = {
+    static_cast<std::uint8_t>(cpu_util::F7::ADD),
+    static_cast<std::uint8_t>(cpu_util::F7::SUB),
+    static_cast<std::uint8_t>(cpu_util::F7::SRL),
+    static_cast<std::uint8_t>(cpu_util::F7::SRA),
+    /*static_cast<std::uint8_t>(cpu_util::F7::X)*/
+};
+
+static std::uint8_t u8_f3_b[6] = {
+    static_cast<std::uint8_t>(cpu_util::F3::BEQ),
+    static_cast<std::uint8_t>(cpu_util::F3::BNE),
+    static_cast<std::uint8_t>(cpu_util::F3::BLT),
+    static_cast<std::uint8_t>(cpu_util::F3::BGE),
+    static_cast<std::uint8_t>(cpu_util::F3::BLTU),
+    static_cast<std::uint8_t>(cpu_util::F3::BGEU),
+};
+static std::uint8_t u8_f3_l[5] = {
+    static_cast<std::uint8_t>(cpu_util::F3::LB),
+    static_cast<std::uint8_t>(cpu_util::F3::LH),
+    static_cast<std::uint8_t>(cpu_util::F3::LW),
+    static_cast<std::uint8_t>(cpu_util::F3::LBU),
+    static_cast<std::uint8_t>(cpu_util::F3::LHU),
+};
+static std::uint8_t u8_f3_s[3] = {
+    static_cast<std::uint8_t>(cpu_util::F3::SB),
+    static_cast<std::uint8_t>(cpu_util::F3::SH),
+    static_cast<std::uint8_t>(cpu_util::F3::SW),
+};
+static std::uint8_t u8_f3_alu[8] = {
+    static_cast<std::uint8_t>(cpu_util::F3::ADDSUB),
+    static_cast<std::uint8_t>(cpu_util::F3::SLT),
+    static_cast<std::uint8_t>(cpu_util::F3::SLTU),
+    static_cast<std::uint8_t>(cpu_util::F3::XOR),
+    static_cast<std::uint8_t>(cpu_util::F3::OR),
+    static_cast<std::uint8_t>(cpu_util::F3::AND),
+    static_cast<std::uint8_t>(cpu_util::F3::SLL),
+    static_cast<std::uint8_t>(cpu_util::F3::SR),
+    /*static_cast<std::uint8_t>(cpu_util::F3::X),*/
+};
 
 // Transaction object used by sequences to generate cpu_seq_item
 class cpu_scenario_item : public uvm_randomized_sequence_item {
@@ -48,66 +106,197 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     crave::crv_variable<std::uint32_t> r_addr;
     crave::crv_variable<std::uint32_t> r_iaddr;
 
-    crave::crv_constraint opcode_range{crave::inside(
-        r_opcode(),
-        // copied from cpu_util.hpp
-        // random enum doesn't work properly yet
-        std::set<std::uint8_t>{0b0110111, 0b0010111, 0b1101111, 0b1100111,
-                               0b1100011, 0b0000011, 0b0100011, 0b0010011,
-                               0b0110011, 0b0001111, 0b1110011})};
+    // contraints
+    crave::crv_constraint c_opcode_range{crave::inside(r_opcode(), u8_opcodes)};
 
-    crave::crv_constraint funct7_range{crave::inside(
-        r_funct7(), std::set<std::uint8_t>{0b0, 0b0100000, 0b0, 0b0100000, 0})};
+    // TODO remove
+    crave::crv_constraint c_opcode_val{
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RR)};
+    crave::crv_constraint c_f3_val{
+        r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::SLL)};
 
-    crave::crv_constraint funct3_range{crave::inside(
-        r_funct3(), std::set<std::uint8_t>{
-                        0b000, 0b001, 0b100, 0b101, 0b110, 0b111, 0b000, 0b001,
-                        0b010, 0b100, 0b101, 0b000, 0b001, 0b010, 0b000, 0b010,
-                        0b011, 0b100, 0b110, 0b111, 0b001, 0b101, 0})};
+    crave::crv_constraint c_funct7_range{crave::inside(r_funct7(), u8_f7)};
 
-    crave::crv_constraint reg_range{r_rs1() < 32 && r_rs2() < 32 &&
-                                    r_rd() < 32};
+    crave::crv_constraint c_funct3_alu_range{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RI) ||
+            r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RR),
+        crave::inside(r_funct3(), u8_f3_alu))};
 
-    // calculated values
+    crave::crv_constraint c_funct3_b_range{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B),
+        crave::inside(r_funct3(), u8_f3_b))};
+
+    crave::crv_constraint c_funct3_s_range{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S),
+        crave::inside(r_funct3(), u8_f3_s))};
+
+    crave::crv_constraint c_funct3_l_range{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L),
+        crave::inside(r_funct3(), u8_f3_l))};
+
+    crave::crv_constraint c_r1_range{r_rs1() > 0, r_rs1() < 32};
+    crave::crv_constraint c_r2_range{r_rs2() > 0, r_rs2() < 32};
+    crave::crv_constraint c_rd_range{r_rd() > 0, r_rd() < 32};
+
+    crave::crv_constraint c_r_different{r_rd() != r_rs1(), r_rs1 != r_rs2(),
+                                        r_rs2 != r_rd()};
+
+    // Limit of JAL. Add AUIPC to setup to extend iaddr testing range
+    crave::crv_constraint c_iaddr_range{r_iaddr() < 0x00100000};
+
+    crave::crv_constraint c_iaddr_align{r_iaddr() % 4 == 0};
+    crave::crv_constraint c_addr_align{r_addr() % 4 == 0};
+
+    // If branch, then branch destination % 4 == 0
+    // Limit of TB, destination must be far away from test instruction range
+    crave::crv_constraint c_b_destination_align{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B),
+        r_imm() % 4 == 0 &&
+            (r_imm() > r_iaddr() + 0x20 || r_imm() < r_iaddr() - 0x20))};
+
+    // Limitation of TB, in order to enforce instruction access ordering
+    crave::crv_constraint c_iaddr_start{r_iaddr() > 11};
+
+    crave::crv_constraint c_jalr_iaddr_align{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR),
+        (r_imm() + r_rs1_val()) % 4 == 0)};
+
+    // TODO test loading and storing other widths
+    crave::crv_constraint c_load_store_word{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L) ||
+            r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S),
+        r_funct3() == 0x010)};
+
+    // 'Fix' known randomization issue with CRAVE
+    crave::crv_constraint c_not_equal_to_prev{
+        r_opcode() != r_opcode(crave::prev),
+        r_funct7() != r_funct7(crave::prev),
+        r_funct3() != r_funct3(crave::prev),
+        r_rs1() != r_rs1(crave::prev),
+        r_rs2() != r_rs2(crave::prev),
+        r_rd() != r_rd(crave::prev),
+        r_rs1_val() != r_rs1_val(crave::prev),
+        r_rs2_val() != r_rs2_val(crave::prev),
+        r_imm() != r_imm(crave::prev),
+        r_data() != r_data(crave::prev),
+        r_addr() != r_addr(crave::prev),
+        r_iaddr() != r_iaddr(crave::prev)};
+
+    // calculated value
     std::uint32_t rd_val;
 
     cpu_seq_item nop;
 
     std::queue<std::pair<cpu_seq_item, cpu_seq_item>> instructions;
 
-    void get_next_instruction(cpu_seq_item &instruction,
-                              cpu_seq_item &expected) {
+    bool error;
+    int cycles;
+    bool checked_write; // by design, there is only one store per test
+    bool should_check_write;
+    bool first_instruction;
+    std::queue<std::uint32_t> instruction_addresses;
+    int num_instructions;
+    int current_requested_instruction_idx;
+    std::map<std::uint32_t, cpu_seq_item> imem;
+    std::map<std::uint32_t, cpu_seq_item> dmem;
 
-        std::pair<cpu_seq_item, cpu_seq_item> pair = instructions.front();
-        cpu_seq_item next_instruction = pair.first;
-        cpu_seq_item next_expected = pair.second;
+    void get_next_instruction(cpu_seq_item &next_item, cpu_seq_item &last_rsp) {
 
-        instruction = next_instruction;
-        expected = next_expected;
+        ++cycles;
+        if (cycles > num_instructions * 4) {
+            error = true;
+            std::ostringstream str;
+            str << std::endl;
+            str << "\x1B[31mERROR \033[0m";
+            str << "Too many cycles. Stopping. " << std::endl;
+            str << " error:               " << error << std::endl;
+            str << " checked store:       " << checked_write << std::endl;
+            str << " remaining addresses: " << instruction_addresses.size();
+            str << "    " << std::hex << instruction_addresses.front();
+            UVM_ERROR(this->get_name(), str.str());
+        }
 
-        instructions.pop();
+        if (first_instruction) {
+            first_instruction = false;
+            next_item = imem[0];
+            return;
+        }
+
+        if (imem.count(last_rsp.iaddr) == 1) {
+            next_item = imem[last_rsp.iaddr];
+
+            // Remove instructions from queue in order
+            if (last_rsp.iaddr == instruction_addresses.front()) {
+                instruction_addresses.pop();
+                if (instruction_addresses.empty()) {
+                    UVM_INFO(this->get_name(), "All instructions executed. ",
+                             uvm::UVM_INFO);
+                }
+            }
+
+        } else {
+            next_item = nop;
+        }
+
+        if (last_rsp.wr == 1) {
+            if (dmem.count(last_rsp.addr) == 1) {
+                // check
+                if (last_rsp.wdata == dmem[last_rsp.addr].wdata) {
+                    // this is fine
+                    checked_write = true;
+                    UVM_INFO(this->get_name(), "Store wdata correct.",
+                             uvm::UVM_INFO);
+                } else {
+                    error = true;
+                    std::ostringstream str;
+                    str << std::endl;
+                    str << "\x1B[31mERROR \033[0m";
+                    str << "Unexpected response: " << std::endl;
+                    str << " wdata:          0x" << std::hex << last_rsp.wdata
+                        << std::endl;
+                    str << " expected wdata: 0x" << std::hex
+                        << dmem[last_rsp.addr].wdata;
+                    UVM_ERROR(this->get_name(), str.str());
+                }
+            } else {
+                error = true;
+                std::ostringstream str;
+                str << std::endl;
+                str << "\x1B[31mERROR \033[0m";
+                str << "Unexpected response: " << std::endl;
+                str << " wr:          0x" << std::hex << last_rsp.wr
+                    << std::endl;
+                str << " expected wr: 0x" << std::hex << dmem[last_rsp.addr].wr;
+                UVM_ERROR(this->get_name(), str.str());
+            }
+        } else if (dmem.count(last_rsp.addr) == 1) {
+            next_item.data = dmem[last_rsp.addr].data;
+        }
     }
-    bool has_next_instruction() { return (!instructions.empty()); }
+    bool has_next_instruction() {
+        // has next instruction if
+        //     - no error
+        //     and
+        //     - hasn't checked the store instruction
+        return ((!error) && ((!checked_write && should_check_write) ||
+                             (!instruction_addresses.empty())));
+    }
 
     void generate_instructions() {
-        /* Based on randomized fields, generate pairs of cpu_seq_items and
-         * expected results.
-         * instructions = {
-         *      <i1, exp0>,
-         *      <i2, exp1>,
-         *      ...
-         * }
-         * Each instruction is paired with the last expected results because
-         * after each positive edge of the clock, the current instruction is
-         * registered in while the last action is registered out.
+        /* Based on randomized fields, put
+         * instructions and inputs to DUT into imem
+         * data and expected output into dmem
          *
          */
-
-        r_opcode.randomize();
-        r_opcode.randomize();
-        r_opcode.randomize();
-        r_rs1.randomize();
-        r_rs1.randomize();
+        cycles = 0;
+        error = false;
+        checked_write = false;
+        should_check_write = true;
+        first_instruction = true;
+        instruction_addresses = std::queue<std::uint32_t>{};
+        current_requested_instruction_idx = 0;
+        imem = std::map<std::uint32_t, cpu_seq_item>{};
+        dmem = std::map<std::uint32_t, cpu_seq_item>{};
 
         cpu_util::Opcode opcode{static_cast<cpu_util::Opcode>(r_opcode.get())};
         cpu_util::F7 funct7{static_cast<cpu_util::F7>(r_funct7.get())};
@@ -122,108 +311,143 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         std::uint32_t addr{r_addr.get()};
         std::uint32_t iaddr{r_iaddr.get()};
 
+        if (opcode == cpu_util::Opcode::JALR && (((rs1_val + imm) % 4) != 0)) {
+            UVM_WARNING(this->get_name(),
+                        "CRAVE randomization failed. JALR and rs1 + imm % 4 != "
+                        "0. Overwriting rs1.");
+            rs1_val -= (rs1_val + imm % 4);
+        }
+
+        // cast to unsigned for printing
+        std::cout << std::hex << "randomized values: opcode: "
+                  << static_cast<unsigned>(opcode)
+                  << ", f7: " << static_cast<unsigned>(funct7)
+                  << ", f3: " << static_cast<unsigned>(funct3)
+                  << ", rd: " << static_cast<unsigned>(rd)
+                  << ", rs1: " << static_cast<unsigned>(rs1)
+                  << ", rs2: " << static_cast<unsigned>(rs2)
+                  << ", rs1_val: " << rs1_val << ", rs2_val: " << rs2_val
+                  << ", imm: " << imm << ", data: " << data
+                  << ", addr: " << addr << ", iaddr: " << iaddr << ". \n";
+
+        std::uint32_t cur_iaddr = 0;
+        std::uint32_t next_iaddr;
         // JAL
-        cpu_seq_item jal, jal_exp;
         cpu_util::make_instruction(cpu_util::Opcode::JAL, cpu_util::F3::X,
                                    cpu_util::F7::X,
-                                   0,     // rs1
-                                   0,     // rs2
-                                   5,     // rd
-                                   iaddr, // imm
-                                   0,     // data
-                                   0,     // rs1_val
-                                   0,     // rs2_val
-                                   0,     // addr
-                                   0,     // cur_iaddr
-                                   jal, jal_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> p{jal, nop};
-        instructions.push(p);
+                                   0,         // rs1
+                                   0,         // rs2
+                                   0,         // rd
+                                   iaddr,     // imm
+                                   0,         // data
+                                   0,         // rs1_val
+                                   0,         // rs2_val
+                                   0,         // addr
+                                   cur_iaddr, // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
 
         // setup registers
         // rs1
-        cpu_seq_item s11, s11_exp;
+        // adjust rs1_val to account for the case when rs1_val[11] == 1,
+        // rs1_val[11:0] will be sign-extended in ADDI, essentially adding
+        // -4096, so we manually add 4096 in that case
+        std::uint32_t rs1_val_adjusted =
+            ((rs1_val >> 11) & 0x1) == 0 ? rs1_val : rs1_val + (0x1 << 12);
         cpu_util::make_instruction(cpu_util::Opcode::LUI, cpu_util::F3::X,
                                    cpu_util::F7::X,
-                                   0,       // rs1
-                                   0,       // rs2
-                                   rs1,     // rd
-                                   rs1_val, // imm
-                                   0,       // data
-                                   0,       // rs1_val
-                                   0,       // rs2_val
-                                   0,       // addr
-                                   iaddr,   // cur_iaddr
-                                   s11, s11_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> s11_p{s11, jal_exp};
-        instructions.push(s11_p);
-        cpu_seq_item s12, s12_exp;
+                                   0,                // rs1
+                                   0,                // rs2
+                                   rs1,              // rd
+                                   rs1_val_adjusted, // imm
+                                   0,                // data
+                                   0,                // rs1_val
+                                   0,                // rs2_val
+                                   0,                // addr
+                                   cur_iaddr,        // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
+
         cpu_util::make_instruction(cpu_util::Opcode::RI, cpu_util::F3::ADDSUB,
                                    cpu_util::F7::ADD,
-                                   0,         // rs1
-                                   0,         // rs2
-                                   rs1,       // rd
-                                   rs1_val,   // imm
-                                   0,         // data
-                                   0,         // rs1_val
-                                   0,         // rs2_val
-                                   0,         // addr
-                                   iaddr + 4, // cur_iaddr
-                                   s12, s12_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> s12_p{s12, s11_exp};
-        instructions.push(s12_p);
+                                   rs1,              // rs1
+                                   0,                // rs2
+                                   rs1,              // rd
+                                   rs1_val_adjusted, // imm
+                                   0,                // data
+                                   0,                // rs1_val
+                                   0,                // rs2_val
+                                   0,                // addr
+                                   cur_iaddr,        // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
+
         // rs2
-        cpu_seq_item s21, s21_exp;
+        std::uint32_t rs2_val_adjusted =
+            ((rs2_val >> 11) & 0x1) == 0 ? rs2_val : rs2_val + (0x1 << 12);
         cpu_util::make_instruction(cpu_util::Opcode::LUI, cpu_util::F3::X,
                                    cpu_util::F7::X,
-                                   0,         // rs1
-                                   0,         // rs2
-                                   rs2,       // rd
-                                   rs2_val,   // imm
-                                   0,         // data
-                                   0,         // rs1_val
-                                   0,         // rs2_val
-                                   0,         // addr
-                                   iaddr + 8, // cur_iaddr
-                                   s21, s21_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> s21_p{s21, s12_exp};
-        instructions.push(s21_p);
+                                   0,                // rs1
+                                   0,                // rs2
+                                   rs2,              // rd
+                                   rs2_val_adjusted, // imm
+                                   0,                // data
+                                   0,                // rs1_val
+                                   0,                // rs2_val
+                                   0,                // addr
+                                   cur_iaddr,        // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
+
         cpu_seq_item s22, s22_exp;
         cpu_util::make_instruction(cpu_util::Opcode::RI, cpu_util::F3::ADDSUB,
                                    cpu_util::F7::ADD,
-                                   0,          // rs1
-                                   0,          // rs2
-                                   rs2,        // rd
-                                   rs2_val,    // imm
-                                   0,          // data
-                                   0,          // rs1_val
-                                   0,          // rs2_val
-                                   0,          // addr
-                                   iaddr + 12, // cur_iaddr
-                                   s22, s22_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> s22_p{s22, s21_exp};
-        instructions.push(s22_p);
+                                   rs2,              // rs1
+                                   0,                // rs2
+                                   rs2,              // rd
+                                   rs2_val_adjusted, // imm
+                                   0,                // data
+                                   0,                // rs1_val
+                                   0,                // rs2_val
+                                   0,                // addr
+                                   cur_iaddr,        // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
         // register setup finished
 
         // run randomized instruction
+        std::uint32_t r_iaddr = cur_iaddr;
         cpu_seq_item r, r_exp;
         cpu_util::make_instruction(opcode, funct3, funct7,
-                                   rs1,        // rs1
-                                   rs2,        // rs2
-                                   rd,         // rd
-                                   imm,        // imm
-                                   data,       // data
-                                   rs1_val,    // rs1_val
-                                   rs2_val,    // rs2_val
-                                   addr,       // addr
-                                   iaddr + 16, // cur_iaddr
-                                   r, r_exp);
-        std::pair<cpu_seq_item, cpu_seq_item> r_p{r, s22_exp};
-        instructions.push(r_p);
-        if (opcode == cpu_util::Opcode::L || opcode == cpu_util::Opcode::S) {
-            // TODO set iaddr (and check in sequence)
-            std::pair<cpu_seq_item, cpu_seq_item> r_p2{nop, nop};
-            instructions.push(r_p2);
-        }
+                                   rs1,       // rs1
+                                   rs2,       // rs2
+                                   rd,        // rd
+                                   imm,       // imm
+                                   data,      // data
+                                   rs1_val,   // rs1_val
+                                   rs2_val,   // rs2_val
+                                   addr,      // addr
+                                   cur_iaddr, // cur_iaddr
+                                   imem, dmem,
+                                   next_iaddr // next_iaddr
+        );
+        cur_iaddr = next_iaddr;
+        instruction_addresses.push(cur_iaddr);
 
         // check
         std::uint32_t imm_sign_extended;
@@ -233,7 +457,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         // calculate expected rd value
         case (cpu_util::Opcode::JAL):
         case (cpu_util::Opcode::JALR):
-            rd_val = iaddr + 20;
+            rd_val = r_iaddr + 4;
             break;
         case (cpu_util::Opcode::RI):
             imm_sign_extended = imm & 0xFFF;
@@ -268,7 +492,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 break;
             case (cpu_util::F3::SR):
                 rd_val = rs1_val >> imm_shamt;
-                if (funct7 == cpu_util::F7::SRA)
+                if (funct7 == cpu_util::F7::SRA && ((rs1_val >> 31 & 1) == 1))
                     rd_val |= (0xFFFFFFFF >> (32 - imm_shamt))
                               << (32 - imm_shamt);
                 break;
@@ -302,13 +526,19 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 rd_val = rs1_val ^ rs2_val;
                 break;
             case (cpu_util::F3::SLL):
-                rd_val = rs1_val << rs2_val;
+                if (rs2_val > 32) rd_val = 0;
+                else rd_val = rs1_val << rs2_val;
                 break;
             case (cpu_util::F3::SR):
-                rd_val = rs1_val >> rs2_val;
-                if (funct7 == cpu_util::F7::SRA)
-                    rd_val |= (0xFFFFFFFF >> (32 - imm_shamt))
-                              << (32 - imm_shamt);
+                if (funct7 == cpu_util::F7::SRA && ((rs1_val >> 31 & 1) == 1)) {
+                    if (rs2_val > 32)
+                        rd_val = 0xFFFFFFFF;
+                    else
+                        rd_val |= (0xFFFFFFFF >> (32 - rs2_val))
+                                  << (32 - rs2_val);
+                } else {
+                    rd_val = rs1_val >> rs2_val;
+                }
                 break;
             }
             break;
@@ -316,7 +546,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             rd_val = imm & 0xFFFFF000;
             break;
         case (cpu_util::Opcode::AUIPC):
-            rd_val = iaddr + 16 + (imm & 0xFFFFF000);
+            rd_val = r_iaddr + (imm & 0xFFFFF000);
             break;
         case (cpu_util::Opcode::L):
             rd_val = data;
@@ -331,10 +561,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             break;
         }
 
-        cpu_seq_item c, c_exp;
-        std::pair<cpu_seq_item, cpu_seq_item> c_p;
-        std::pair<cpu_seq_item, cpu_seq_item> c_p2{nop, nop};
-        std::pair<cpu_seq_item, cpu_seq_item> c_p3{nop, nop};
+        cpu_seq_item check_item{nop};
         switch (opcode) {
         // check rd
         case (cpu_util::Opcode::JAL):
@@ -346,35 +573,42 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         case (cpu_util::Opcode::L):
             cpu_util::make_instruction(cpu_util::Opcode::S, cpu_util::F3::SW,
                                        cpu_util::F7::X,
-                                       0,          // rs1
-                                       rd,         // rs2
-                                       0,          // rd
-                                       0,          // imm
-                                       rd_val,     // data
-                                       0,          // rs1_val
-                                       0,          // rs2_val
-                                       0,          // addr
-                                       iaddr + 20, // cur_iaddr
-                                       c, c_exp);
-            c_p = {c, r_exp};
-            instructions.push(c_p);
-            instructions.push(c_p2); // nop, nop
-            c_p3 = {nop, c_exp};
-            instructions.push(c_p3);
+                                       0,         // rs1
+                                       rd,        // rs2
+                                       0,         // rd
+                                       0,         // imm
+                                       0,         // data
+                                       0,         // rs1_val
+                                       rd_val,    // rs2_val
+                                       0,         // addr
+                                       cur_iaddr, // cur_iaddr
+                                       imem, dmem,
+                                       next_iaddr // next_iaddr
+            );
+            cur_iaddr = next_iaddr;
+            instruction_addresses.push(cur_iaddr);
+            imem[cur_iaddr] = check_item; // check next iaddr
             break;
 
-        // checking already done by expected cpu_seq_item
+        // check correct branched address
         case (cpu_util::Opcode::B):
+            imem[cur_iaddr] = check_item;
+            should_check_write = false;
+            break;
+
+        // checking already done by expected data writing
         case (cpu_util::Opcode::S):
+            break;
 
         // no checking implemented yet
         case (cpu_util::Opcode::F):
         case (cpu_util::Opcode::E):
         default:
-            c_p = {nop, r_exp};
-            instructions.push(c_p);
+            should_check_write = false;
             break;
         }
+
+        num_instructions = instruction_addresses.size();
     }
 
     virtual void do_print(uvm::uvm_printer &printer) const {}

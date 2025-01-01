@@ -11,10 +11,6 @@ module dual_port_ram (
 
   logic [7:0] mem[1024*4];  // 4kB
 
-  // assume aligned
-  // 'byte-addressable'
-  assign data  = {mem[addr+3], mem[addr+2], mem[addr+1], mem[addr]};
-  assign idata = {mem[iaddr+3], mem[iaddr+2], mem[iaddr+1], mem[iaddr]};
 
   initial begin
     $readmemh("ram.mem", mem);
@@ -27,6 +23,10 @@ module dual_port_ram (
       mem[addr+2] <= wdata[23:16];
       mem[addr+3] <= wdata[31:24];
     end
+    // assume aligned
+    // 'byte-addressable'
+    data  <= {mem[addr+3], mem[addr+2], mem[addr+1], mem[addr]};
+    idata <= {mem[iaddr+3], mem[iaddr+2], mem[iaddr+1], mem[iaddr]};
   end
 
 endmodule
