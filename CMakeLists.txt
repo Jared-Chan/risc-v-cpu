@@ -11,8 +11,8 @@ link_directories($ENV{UVM_SYSTEMC_LIBDIR})
 include_directories($ENV{CRAVE_INCLUDE})
 link_directories($ENV{CRAVE_LIBDIR})
 include_directories($ENV{CRAVE_UVM_INCLUDE})
-link_libraries(crave)
-link_libraries(metaSMT)
+# link_libraries(crave)
+# link_libraries(metaSMT)
 
 include_directories($ENV{Z3_INCLUDE})
 link_directories($ENV{Z3_LIBDIR})
@@ -20,16 +20,19 @@ link_directories($ENV{Z3_LIBDIR})
 
 include_directories($ENV{CUDD_INCLUDE})
 link_directories($ENV{CUDD_LIBDIR})
-link_libraries(cudd)
+# link_libraries(cudd)
 
 include_directories($ENV{GLOG_INCLUDE})
 link_directories($ENV{GLOG_LIBDIR})
-link_libraries(glog)
+# link_libraries(glog)
 
 include_directories($ENV{BOOST_INCLUDE})
 link_directories($ENV{BOOST_LIBDIR})
-link_libraries(boost_filesystem)
+# link_libraries(boost_filesystem)
 # -------------
+
+# FC4SC
+include_directories($ENV{FC4SC_INCLUDE})
 
 # Design
 add_library(dut)
@@ -54,8 +57,14 @@ dv/cpu_sequencer.hpp
 dv/cpu_scenario_item.hpp
 dv/cpu_util.hpp
 dv/cpu_util.cpp
+dv/cpu_coverage_subscriber.hpp
 )
 
 target_link_libraries(sim PRIVATE dut)
 target_link_libraries(sim PRIVATE uvm-systemc)
 target_link_libraries(sim PRIVATE z3)
+target_link_libraries(sim PRIVATE crave)
+target_link_libraries(sim PRIVATE metaSMT)
+target_link_libraries(sim PRIVATE cudd)
+target_link_libraries(sim PRIVATE glog)
+target_link_libraries(sim PRIVATE boost_filesystem)

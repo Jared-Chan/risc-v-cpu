@@ -1,10 +1,11 @@
-#ifndef CPU_SEQ_ITEM
-#define CPU_SEQ_ITEM
+#ifndef CPU_SEQ_ITEM_H
+#define CPU_SEQ_ITEM_H
 
 #include "uvmsc/macros/uvm_object_defines.h"
-#include <cstdint>
 #include <systemc>
 #include <uvm>
+
+#include <cstdint>
 
 // Transaction object used by drivers at CPU interface
 class cpu_seq_item : public uvm::uvm_sequence_item {
@@ -16,10 +17,12 @@ class cpu_seq_item : public uvm::uvm_sequence_item {
 
     UVM_OBJECT_UTILS(cpu_seq_item);
 
+    // DUT input
     bool rst_n;
     std::uint32_t idata;
     std::uint32_t data;
 
+    // DUT output
     std::uint32_t iaddr;
     std::uint32_t addr;
     bool wr;

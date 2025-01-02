@@ -29,12 +29,8 @@ module top ();
   end
 
   initial begin
-    #15;
-    // data = 32'h0000_0000;
-    #5;
+    #20;
     repeat (1200) begin
-
-      // $display("time=%0t iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h", $time, iaddr, idata, addr, data, wdata, wr);
 
       if (iaddr == 'h684) begin
         $display("time=%0t iaddr=0x%0h test failed!", $time, iaddr);

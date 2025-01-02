@@ -1,8 +1,10 @@
-#ifndef CPU_SEQUENCE
-#define CPU_SEQUENCE
+#ifndef CPU_SEQUENCE_H
+#define CPU_SEQUENCE_H
 
 #include "cpu_scenario_item.hpp"
+
 #include "uvmsc/base/uvm_object_globals.h"
+#include <cstddef>
 #include <systemc>
 #include <uvm>
 
@@ -15,28 +17,36 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
     UVM_OBJECT_PARAM_UTILS(cpu_sequence<REQ, RSP>);
 
     void body() {
-        REQ *req {};
-        RSP *rsp {};
-        RSP *exp_rsp {};
+        uvm::uvm_config_db<int>::get(NULL, this->get_full_name(), "length", length);
+        REQ *req{};
+        RSP *rsp{};
+        RSP *exp_rsp{};
 
         bool error, first_instruction;
 
-        UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
-        for (int i = 0; i < 10000; ++i) {
-            UVM_INFO(this->get_name(), "Starting a new scenario", uvm::UVM_MEDIUM);
+        item = cpu_scenario_item::type_id::create("scenario_item");
+        uvm::uvm_verbosity verbosity;
+        uvm::uvm_config_db<uvm::uvm_verbosity>::get(0, "*", "verbosity",
+                                                    verbosity);
+        uvm::uvm_root::get()->set_report_id_verbosity("scenario_item",verbosity);
 
-            if (!item.randomize()) {
+        UVM_INFO(this->get_name(), "Starting sequence", uvm::UVM_MEDIUM);
+        for (int i = 0; i < length; ++i) {
+            UVM_INFO(this->get_name(), "Starting a new scenario",
+                     uvm::UVM_MEDIUM);
+
+            if (!item->randomize()) {
                 UVM_ERROR(this->get_name(), "Randomization failed.");
                 continue;
             }
-            item.generate_instructions();
-            
-            while (item.has_next_instruction()) {
+            item->generate_instructions();
+
+            while (item->has_next_instruction()) {
                 if (req)
                     delete req;
                 req = new REQ();
 
-                item.get_next_instruction(*req, *rsp);
+                item->get_next_instruction(*req, *rsp);
 
                 this->start_item(req);
                 this->finish_item(req);
@@ -54,7 +64,7 @@ class cpu_sequence : public uvm::uvm_sequence<REQ, RSP> {
 
   protected:
     int length;
-    cpu_scenario_item item;
+    cpu_scenario_item *item;
 };
 
 #endif

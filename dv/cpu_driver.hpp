@@ -1,13 +1,11 @@
-#ifndef CPU_DRIVER
-#define CPU_DRIVER
-
-#include <cstdint>
-#include <systemc>
-#include <uvm>
+#ifndef CPU_DRIVER_H
+#define CPU_DRIVER_H
 
 #include "cpu_if.hpp"
 #include "cpu_seq_item.hpp"
-#include "cpu_util.hpp"
+
+#include <systemc>
+#include <uvm>
 
 class cpu_driver : public uvm::uvm_driver<cpu_seq_item> {
   public:
@@ -51,22 +49,13 @@ class cpu_driver : public uvm::uvm_driver<cpu_seq_item> {
         vif->idata = req.idata;
         vif->rst_n = req.rst_n;
         vif->data = req.data;
-        /*sc_core::wait(vif->clk.posedge_event());*/
     }
     void get_item(cpu_seq_item &rsp, cpu_seq_item &req) {
         sc_core::wait(vif->clk.posedge_event());
-
-        /*// For load and store, wait an extra cycle*/
-        /*if ((req.idata & 0x3F) ==*/
-        /*        static_cast<std::uint32_t>(cpu_util::Opcode::L) ||*/
-        /*    (req.idata & 0x3F) ==*/
-        /*        static_cast<std::uint32_t>(cpu_util::Opcode::S)) {*/
-        /*    sc_core::wait(vif->clk.posedge_event());*/
-        /*}*/
-            rsp.iaddr = vif->iaddr;
-            rsp.addr = vif->addr;
-            rsp.wdata = vif->wdata;
-            rsp.wr = vif->wr;
+        rsp.iaddr = vif->iaddr;
+        rsp.addr = vif->addr;
+        rsp.wdata = vif->wdata;
+        rsp.wr = vif->wr;
     }
 };
 

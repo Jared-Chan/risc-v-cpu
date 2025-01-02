@@ -1,9 +1,11 @@
-#ifndef CPU_UTIL
-#define CPU_UTIL
+#ifndef CPU_UTIL_H
+#define CPU_UTIL_H
 
 #include "cpu_seq_item.hpp"
+
 #include <cstdint>
 #include <sstream>
+
 namespace cpu_util {
 
 enum class Opcode {
@@ -85,6 +87,11 @@ std::uint32_t make_b_type_instruction(Opcode opcode, F3 f3, std::uint8_t rs1,
                                       std::uint8_t rs2, std::uint32_t imm);
 
 bool is_nop(cpu_seq_item &item);
+void decode_idata(cpu_seq_item &item, Opcode &opcode, F3 &f3, F7 &f7,
+                  std::uint8_t &rs1, std::uint8_t &rs2, std::uint8_t &rd,
+                  std::uint32_t &i_imm, std::uint32_t &s_imm,
+                  std::uint32_t &u_imm, std::uint32_t &b_imm,
+                  std::uint32_t &j_imm);
 
 void print_instruction(const cpu_seq_item &item, std::ostringstream &str);
 

@@ -1,13 +1,13 @@
-#ifndef CPU_AGENT
-#define CPU_AGENT
-
-#include <systemc>
-#include <uvm>
+#ifndef CPU_AGENT_H
+#define CPU_AGENT_H
 
 #include "cpu_driver.hpp"
 #include "cpu_if.hpp"
 #include "cpu_monitor.hpp"
 #include "cpu_sequencer.hpp"
+
+#include <systemc>
+#include <uvm>
 
 class cpu_agent : public uvm::uvm_agent {
   public:

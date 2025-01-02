@@ -1,11 +1,15 @@
+#ifndef TEST_H
+#define TEST_H
 #include "cpu_env.hpp"
 #include "cpu_if.hpp"
 #include "cpu_seq_item.hpp"
 #include "cpu_sequence.hpp"
+
 #include "uvmsc/base/uvm_object_globals.h"
-#include <string>
 #include <systemc>
 #include <uvm>
+
+#include <string>
 
 class base_test : public uvm::uvm_test {
   public:
@@ -20,8 +24,6 @@ class base_test : public uvm::uvm_test {
     ~base_test() {}
 
     void build_phase(uvm::uvm_phase &phase) {
-        std::cout << sc_core::sc_time_stamp() << ": " << get_full_name()
-                  << " phase: " << phase.get_name() << std::endl;
         env = cpu_env::type_id::create("env");
         seq = cpu_sequence<cpu_seq_item>::type_id::create("seq");
 
@@ -34,6 +36,11 @@ class base_test : public uvm::uvm_test {
     }
 
     void end_of_elaboration_phase(uvm::uvm_phase &phase) {
+        uvm::uvm_verbosity verbosity;
+        uvm::uvm_config_db<uvm::uvm_verbosity>::get(this, "*", "verbosity",
+                                                    verbosity);
+        this->set_report_verbosity_level_hier(verbosity);
+
         UVM_INFO(get_type_name(), "Test topology :\n" + this->sprint(),
                  uvm::UVM_LOW);
     }
@@ -47,23 +54,15 @@ class base_test : public uvm::uvm_test {
     void report_phase(uvm::uvm_phase &phase) {}
 
     void final_phase(uvm::uvm_phase &phase) {
-        std::cout << sc_core::sc_time_stamp() << ": " << get_full_name()
-                  << " phase: " << phase.get_name() << std::endl;
     }
 
     void run_phase(uvm::uvm_phase &phase) {
         phase.raise_objection(this);
-        std::cout << sc_core::sc_time_stamp() << ": " << get_full_name()
-                  << " start phase: " << phase.get_name() << std::endl;
 
         apply_reset();
 
         seq->start(env->agent->sequencer);
 
-        /*wait(5, sc_core::SC_MS);*/
-
-        std::cout << sc_core::sc_time_stamp() << ": " << get_full_name()
-                  << " end phase: " << phase.get_name() << std::endl;
         phase.drop_objection(this);
     }
 
@@ -75,3 +74,4 @@ class base_test : public uvm::uvm_test {
         vif->rst_n = true;
     }
 };
+#endif

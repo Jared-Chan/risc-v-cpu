@@ -1,11 +1,11 @@
-#ifndef CPU_MONITOR
-#define CPU_MONITOR
-
-#include <systemc>
-#include <uvm>
+#ifndef CPU_MONITOR_H
+#define CPU_MONITOR_H
 
 #include "cpu_if.hpp"
 #include "cpu_seq_item.hpp"
+
+#include <systemc>
+#include <uvm>
 
 class cpu_monitor : public uvm::uvm_monitor {
   public:
@@ -13,7 +13,7 @@ class cpu_monitor : public uvm::uvm_monitor {
 
     UVM_COMPONENT_UTILS(cpu_monitor);
 
-    cpu_monitor(uvm::uvm_component_name name) : uvm::uvm_monitor(name){}
+    cpu_monitor(uvm::uvm_component_name name) : uvm::uvm_monitor(name) {}
 
     void build_phase(uvm::uvm_phase &phase) {
         if (!uvm::uvm_config_db<cpu_if *>::get(this, "", "vif", vif))
@@ -74,4 +74,3 @@ class cpu_monitor : public uvm::uvm_monitor {
 };
 
 #endif
-

@@ -1,5 +1,5 @@
-#ifndef CPU_IF
-#define CPU_IF
+#ifndef CPU_IF_H
+#define CPU_IF_H
 
 #include <sysc/communication/sc_writer_policy.h>
 #include <sysc/kernel/sc_time.h>

@@ -1,6 +1,5 @@
-
-#ifndef CPU_SEQUENCER
-#define CPU_SEQUENCER
+#ifndef CPU_SEQUENCER_H
+#define CPU_SEQUENCER_H
 
 #include <systemc>
 #include <uvm>
