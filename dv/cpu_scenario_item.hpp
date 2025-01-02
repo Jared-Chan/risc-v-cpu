@@ -32,7 +32,7 @@ static std::uint8_t u8_opcodes[9] = {
     static_cast<std::uint8_t>(cpu_util::Opcode::RI),
     static_cast<std::uint8_t>(cpu_util::Opcode::RR),
     /*static_cast<std::uint8_t>(cpu_util::Opcode::F),*/
-    /*static_cast<std::uint8_t>(cpu_util::Opcode::E)*/
+    /*static_cast<std::uint8_t>(cpu_util::Opcode::SYS)*/
 };
 
 static std::uint8_t u8_f7[5] = {
@@ -51,17 +51,17 @@ static std::uint8_t u8_f3_b[6] = {
     static_cast<std::uint8_t>(cpu_util::F3::BLTU),
     static_cast<std::uint8_t>(cpu_util::F3::BGEU),
 };
-// TODO test other widths
-static std::uint8_t u8_f3_l[1] = {
-    /*static_cast<std::uint8_t>(cpu_util::F3::LB),*/
-    /*static_cast<std::uint8_t>(cpu_util::F3::LH),*/
+
+static std::uint8_t u8_f3_l[5] = {
+    static_cast<std::uint8_t>(cpu_util::F3::LB),
+    static_cast<std::uint8_t>(cpu_util::F3::LH),
     static_cast<std::uint8_t>(cpu_util::F3::LW),
-    /*static_cast<std::uint8_t>(cpu_util::F3::LBU),*/
-    /*static_cast<std::uint8_t>(cpu_util::F3::LHU),*/
+    static_cast<std::uint8_t>(cpu_util::F3::LBU),
+    static_cast<std::uint8_t>(cpu_util::F3::LHU),
 };
-static std::uint8_t u8_f3_s[1] = {
-    /*static_cast<std::uint8_t>(cpu_util::F3::SB),*/
-    /*static_cast<std::uint8_t>(cpu_util::F3::SH),*/
+static std::uint8_t u8_f3_s[3] = {
+    static_cast<std::uint8_t>(cpu_util::F3::SB),
+    static_cast<std::uint8_t>(cpu_util::F3::SH),
     static_cast<std::uint8_t>(cpu_util::F3::SW),
 };
 static std::uint8_t u8_f3_alu[8] = {
@@ -251,6 +251,8 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     // data memory, also contains expected wdata and wr
     std::map<std::uint32_t, cpu_seq_item> dmem;
 
+    std::ostringstream rand_result_str;
+
     void get_next_instruction(cpu_seq_item &next_item, cpu_seq_item &last_rsp) {
 
         ++cycles;
@@ -265,6 +267,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             str << " remaining addresses: " << instruction_addresses.size();
             str << "    " << std::hex << instruction_addresses.front();
             UVM_ERROR(this->get_name(), str.str());
+            UVM_ERROR(this->get_name(), rand_result_str.str());
         }
 
         if (first_instruction) {
@@ -315,6 +318,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                     str << " expected wdata: 0x" << std::hex
                         << dmem[last_rsp.addr].wdata;
                     UVM_ERROR(this->get_name(), str.str());
+                    UVM_ERROR(this->get_name(), rand_result_str.str());
                 }
             } else {
                 error = true;
@@ -326,6 +330,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                     << std::endl;
                 str << " expected wr: 0x" << std::hex << dmem[last_rsp.addr].wr;
                 UVM_ERROR(this->get_name(), str.str());
+                UVM_ERROR(this->get_name(), rand_result_str.str());
             }
         } else if (dmem.count(last_rsp.addr) == 1) {
             // data read
@@ -341,7 +346,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         //     - there is no error
         //     and
         //         - we haven't checked the STORE instruction but should check
-        //         OR if we shouldn't check
+        //         OR
         //         - DUT hasn't fetched all instructions
         return ((!error) && ((!checked_write && should_check_write) ||
                              (!instruction_addresses.empty())));
@@ -349,8 +354,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
 
     void generate_instructions() {
         /* Based on randomized fields, put
-         * - instructions and inputs to DUT into imem
-         * - data and expected output into dmem
+         * - into imem
+         *     - instructions and inputs to DUT
+         * - into dmem
+         *     - data and expected output
          *
          */
         cycles = 0;
@@ -376,7 +383,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         std::uint32_t iaddr{r_iaddr.get()};
 
         // cast to unsigned for printing
-        std::ostringstream rand_result_str;
+        rand_result_str.str(std::string());
         rand_result_str << std::hex << "randomized values: opcode: "
                         << static_cast<unsigned>(opcode)
                         << ", f7: " << static_cast<unsigned>(funct7)
@@ -650,19 +657,42 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             rd_val = r_iaddr + (imm & 0xFFFFF000);
             break;
         case (cpu_util::Opcode::L):
-            rd_val = data;
+            switch (funct3) {
+            case (cpu_util::F3::LW):
+                rd_val = data;
+                break;
+            case (cpu_util::F3::LH):
+                rd_val = data & 0x0000FFFF;
+                if ((data & 0x00008000) == 0x00008000)
+                    rd_val |= 0xFFFF0000;
+                break;
+            case (cpu_util::F3::LB):
+                rd_val = data & 0x000000FF;
+                if ((data & 0x00000080) == 0x00000080)
+                    rd_val |= 0xFFFFFF00;
+                break;
+            case (cpu_util::F3::LHU):
+                rd_val = data & 0x0000FFFF;
+                break;
+            case (cpu_util::F3::LBU):
+                rd_val = data & 0x000000FF;
+                break;
+            default:
+                break;
+            }
             break;
 
         // no rd
         case (cpu_util::Opcode::B):
         case (cpu_util::Opcode::S):
         case (cpu_util::Opcode::F):
-        case (cpu_util::Opcode::E):
+        case (cpu_util::Opcode::SYS):
         default:
             break;
         }
 
         cpu_seq_item check_item{nop};
+        std::uint32_t check_store_imm = 0;
         switch (opcode) {
         // check rd
         case (cpu_util::Opcode::JAL):
@@ -672,17 +702,20 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         case (cpu_util::Opcode::LUI):
         case (cpu_util::Opcode::AUIPC):
         case (cpu_util::Opcode::L):
+            // Do not overwrite dmem[rs1_val+imm_sign_extended]
+            if (rs1_val + imm_sign_extended == check_store_imm)
+                check_store_imm += 4;
             cpu_util::make_instruction(cpu_util::Opcode::S, cpu_util::F3::SW,
                                        cpu_util::F7::X,
-                                       0,         // rs1
-                                       rd,        // rs2
-                                       0,         // rd
-                                       0,         // imm
-                                       0,         // data
-                                       0,         // rs1_val
-                                       rd_val,    // rs2_val
-                                       0,         // addr
-                                       cur_iaddr, // cur_iaddr
+                                       0,               // rs1
+                                       rd,              // rs2
+                                       0,               // rd
+                                       check_store_imm, // imm
+                                       0,               // data
+                                       0,               // rs1_val
+                                       rd_val,          // rs2_val
+                                       0,               // addr
+                                       cur_iaddr,       // cur_iaddr
                                        imem, dmem,
                                        next_iaddr // next_iaddr
             );
@@ -715,7 +748,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
 
         // no checking implemented yet
         case (cpu_util::Opcode::F):
-        case (cpu_util::Opcode::E):
+        case (cpu_util::Opcode::SYS):
         default:
             should_check_write = false;
             break;

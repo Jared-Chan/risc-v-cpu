@@ -175,7 +175,7 @@ class cpu_covergroup : public covergroup {
         bin<std::uint8_t>("RR",
                           static_cast<std::uint8_t>(cpu_util::Opcode::RR)),
         bin<std::uint8_t>("F", static_cast<std::uint8_t>(cpu_util::Opcode::F)),
-        bin<std::uint8_t>("E", static_cast<std::uint8_t>(cpu_util::Opcode::E))};
+        bin<std::uint8_t>("SYS", static_cast<std::uint8_t>(cpu_util::Opcode::SYS))};
 
     COVERPOINT(std::uint8_t, b_f3_cvp, f3_u, opcode == cpu_util::Opcode::B){
         bin<std::uint8_t>("BEQ", static_cast<std::uint8_t>(cpu_util::F3::BEQ)),
@@ -227,6 +227,13 @@ class cpu_covergroup : public covergroup {
                    f3 == cpu_util::F3::SR){
         bin<std::uint8_t>("SRL", static_cast<std::uint8_t>(cpu_util::F7::SRL)),
         bin<std::uint8_t>("SRA", static_cast<std::uint8_t>(cpu_util::F7::SRA))};
+
+    cross<bool, std::uint32_t, std::uint32_t, std::uint32_t, std::uint8_t,
+          std::uint8_t, std::uint8_t>
+        sl_cross = cross<bool, std::uint32_t, std::uint32_t, std::uint32_t,
+                         std::uint8_t, std::uint8_t, std::uint8_t>(
+            this, "sl_cross", &wr_cvp, &data_msb_cvp, &wdata_msb_cvp,
+            &addr_msb_cvp, &data_lsb_cvp, &wdata_lsb_cvp, &addr_lsb_cvp);
 };
 
 class cpu_coverage_subscriber : public uvm::uvm_subscriber<cpu_seq_item> {

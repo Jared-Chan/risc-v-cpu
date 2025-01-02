@@ -312,8 +312,8 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
     case (cpu_util::Opcode::F):
         str << " F ";
         break;
-    case (cpu_util::Opcode::E):
-        str << " B ";
+    case (cpu_util::Opcode::SYS):
+        str << " SYS ";
         break;
     default:
         break;
@@ -424,7 +424,21 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
                                                        rs1, rs2, imm);
         exp_item.addr = rs1_val + imm_12_signed_extended;
         exp_item.wr = true;
-        exp_item.wdata = rs2_val;
+        exp_item.data = data;
+
+        switch (f3) {
+        case (cpu_util::F3::SW):
+            exp_item.wdata = rs2_val;
+            break;
+        case (cpu_util::F3::SH):
+            exp_item.wdata = (rs2_val & 0x0000FFFF) | (data & 0xFFFF0000);
+            break;
+        case (cpu_util::F3::SB):
+            exp_item.wdata = (rs2_val & 0x000000FF) | (data & 0xFFFFFF00);
+            break;
+        default:
+            break;
+        }
         dmem[exp_item.addr] = exp_item;
         break;
 
@@ -465,7 +479,7 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
 
     // not implemented, set to NOP
     case (cpu_util::Opcode::F):
-    case (cpu_util::Opcode::E):
+    case (cpu_util::Opcode::SYS):
     default:
         item.idata = cpu_util::make_i_type_instruction(
             cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0);

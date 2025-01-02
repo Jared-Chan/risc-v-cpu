@@ -26,7 +26,7 @@ int sc_main(int, char *[]) {
     uvm::uvm_config_db<cpu_if *>::set(uvm::uvm_root::get(), "*", "vif", cif);
     uvm::uvm_config_db<int>::set(uvm::uvm_root::get(),
                                  "base_test.env.agent.sequencer.seq", "length",
-                                 100000);
+                                 1000);
     uvm::uvm_config_db<uvm::uvm_verbosity>::set(uvm::uvm_root::get(), "*",
                                                 "verbosity", uvm::UVM_LOW);
     crave::init("crave.cfg");

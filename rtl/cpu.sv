@@ -12,7 +12,7 @@
 `define OP_RI 7'b0010011 // reg-imm
 `define OP_RR 7'b0110011 // reg-reg
 `define OP_F 7'b0001111 // fence
-`define OP_E 7'b1110011 // env
+`define OP_SYS 7'b1110011 // system
 
 `define F3_BEQ 3'b000
 `define F3_BNE 3'b001
@@ -401,7 +401,7 @@ module cpu (
             end
             `OP_F: begin
             end
-            `OP_E: begin
+            `OP_SYS: begin
             end
             default: begin
               pc <= pc;
