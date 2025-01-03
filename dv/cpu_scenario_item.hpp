@@ -21,7 +21,7 @@
 #include <sstream>
 
 // random enum doesn't work properly yet
-static std::uint8_t u8_opcodes[9] = {
+static std::uint8_t u8_opcodes[10] = {
     static_cast<std::uint8_t>(cpu_util::Opcode::LUI),
     static_cast<std::uint8_t>(cpu_util::Opcode::AUIPC),
     static_cast<std::uint8_t>(cpu_util::Opcode::JAL),
@@ -31,11 +31,11 @@ static std::uint8_t u8_opcodes[9] = {
     static_cast<std::uint8_t>(cpu_util::Opcode::S),
     static_cast<std::uint8_t>(cpu_util::Opcode::RI),
     static_cast<std::uint8_t>(cpu_util::Opcode::RR),
+    static_cast<std::uint8_t>(cpu_util::Opcode::SYS)
     /*static_cast<std::uint8_t>(cpu_util::Opcode::F),*/
-    /*static_cast<std::uint8_t>(cpu_util::Opcode::SYS)*/
 };
 
-static std::uint8_t u8_f7[5] = {
+static std::uint8_t u8_f7[4] = {
     static_cast<std::uint8_t>(cpu_util::F7::ADD),
     static_cast<std::uint8_t>(cpu_util::F7::SUB),
     static_cast<std::uint8_t>(cpu_util::F7::SRL),
@@ -73,6 +73,14 @@ static std::uint8_t u8_f3_alu[8] = {
     static_cast<std::uint8_t>(cpu_util::F3::AND),
     static_cast<std::uint8_t>(cpu_util::F3::SLL),
     static_cast<std::uint8_t>(cpu_util::F3::SR),
+};
+static std::uint8_t u8_f3_sys[6] = {
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRW),
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRS),
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRC),
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRWI),
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRSI),
+    static_cast<std::uint8_t>(cpu_util::F3::CSRRCI)
     /*static_cast<std::uint8_t>(cpu_util::F3::X),*/
 };
 
@@ -114,10 +122,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
 
     // TODO remove
     /*crave::crv_constraint c_opcode_val{*/
-    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L)};*/
+    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)};*/
     /*crave::crv_constraint c_f3_val{*/
     /*    r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::BLT)};*/
-    /*crave::crv_constraint c_imm_val{r_imm() == 0x1fffe8};*/
+    /*crave::crv_constraint c_imm_val{r_imm() == 0x00000C00};*/
     /*crave::crv_constraint c_rs1_val_val{r_rs1_val() == 0x101040a};*/
     /*crave::crv_constraint c_rs2_val_val{r_rs2_val() == 0x2000003};*/
     /*crave::crv_constraint c_rs1_val{r_rs1() == 0x7};*/
@@ -144,12 +152,22 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L),
         crave::inside(r_funct3(), u8_f3_l))};
 
-    crave::crv_constraint c_r1_range{r_rs1() > 0, r_rs1() < 32};
-    crave::crv_constraint c_r2_range{r_rs2() > 0, r_rs2() < 32};
+    crave::crv_constraint c_funct3_sys_range{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS),
+        crave::inside(r_funct3(), u8_f3_sys))};
+
+    crave::crv_constraint c_r1_range{r_rs1() >= 0, r_rs1() < 32};
+    crave::crv_constraint c_r2_range{r_rs2() >= 0, r_rs2() < 32};
     crave::crv_constraint c_rd_range{r_rd() > 0, r_rd() < 32};
 
-    crave::crv_constraint c_r_different{r_rd() != r_rs1(), r_rs1 != r_rs2(),
-                                        r_rs2 != r_rd()};
+    crave::crv_constraint c_r1_val_x0{
+        crave::if_then(r_rs1() == 0, r_rs1_val() == 0)};
+    crave::crv_constraint c_r2_val_x0{
+        crave::if_then(r_rs2() == 0, r_rs2_val() == 0)};
+
+    /*crave::crv_constraint c_r_different{r_rd() != r_rs1(), r_rs1() !=
+     * r_rs2(),*/
+    /*                                    r_rs2() != r_rd()};*/
 
     // Limit of JAL. Add AUIPC to setup to extend iaddr testing range
     crave::crv_constraint c_iaddr_range{r_iaddr() < 0x00100000};
@@ -157,6 +175,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     crave::crv_constraint c_iaddr_align{r_iaddr() % 4 == 0};
 
     crave::crv_constraint c_addr_align{r_addr() % 4 == 0};
+
     crave::crv_constraint c_l_addr_align{crave::if_then(
         r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L),
         (r_rs1_val() + r_imm()) % 4 == 0 && (r_rs2_val() + r_imm()) % 4 == 0)};
@@ -215,6 +234,19 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             ((r_imm() & 0x100000) == 0x100000),
         ((r_imm() | 0xFFE00000) < 0xFFFFFFFF - (r_iaddr() + 0x20)))};
 
+    // CYCLE and INSTRET registers are read-only
+    // TODO fix CRAVE randomization failure with constraints r_rs1() == 0 or
+    // r_rs2() == 0
+    /*crave::crv_constraint c_csr_cycle_instret{crave::if_then(*/
+    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS) &&*/
+    /*        ((r_imm() & 0xFFF) == 0xC00 || (r_imm() & 0xFFF) == 0xC80 ||*/
+    /*         (r_imm() & 0xFFF) == 0xC01 || (r_imm() & 0xFFF) == 0xC81),*/
+    /*    (r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRS) ||*/
+    /*     r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRC) ||*/
+    /*     r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRSI) ||*/
+    /*     r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRCI)) &&*/
+    /*        r_rs1() == 0)};*/
+
     // 'Fix' known randomization issue with CRAVE
     crave::crv_constraint c_not_equal_to_prev{
         r_opcode() != r_opcode(crave::prev),
@@ -239,6 +271,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     int cycles;              // info on whether a test runs for too long
     bool checked_write;      // by design, there is only one store per test
     bool should_check_write; // no need to check rd for branch
+    bool should_check_csr_cycle_instret_store;
     bool first_instruction;
     std::queue<std::uint32_t> instruction_addresses; // addr in order
     int num_instructions;
@@ -302,7 +335,19 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         if (last_rsp.wr == 1) {
             if (dmem.count(last_rsp.addr) == 1) {
                 // check
-                if (last_rsp.wdata == dmem[last_rsp.addr].wdata) {
+                if (should_check_csr_cycle_instret_store) {
+                    // This happens after a CSR read of CYCLE or INSTRET
+                    // TODO verify CYCLE and INSTRET CSR data
+                    checked_write = true;
+
+                    std::ostringstream str;
+                    str << std::endl;
+                    str << "CSR CYCLE or INSTRET: " << std::endl;
+                    str << " wdata: 0x" << std::hex
+                        << dmem[last_rsp.addr].wdata;
+                    UVM_INFO(this->get_name(), str.str(), uvm::UVM_HIGH);
+
+                } else if (last_rsp.wdata == dmem[last_rsp.addr].wdata) {
                     // this is fine
                     checked_write = true;
                     UVM_INFO(this->get_name(), "Store wdata correct.",
@@ -364,6 +409,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         error = false;
         checked_write = false;
         should_check_write = true;
+        should_check_csr_cycle_instret_store = false;
         first_instruction = true;
         instruction_addresses = std::queue<std::uint32_t>{};
         imem = std::map<std::uint32_t, cpu_seq_item>{};
@@ -382,6 +428,13 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         std::uint32_t addr{r_addr.get()};
         std::uint32_t iaddr{r_iaddr.get()};
 
+        // Due to mentioned randomization failure, overwrite rs1 here
+        if (opcode == cpu_util::Opcode::SYS &&
+            ((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+             (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81)) {
+            rs1 = 0;
+            rs1_val = 0;
+        }
         // cast to unsigned for printing
         rand_result_str.str(std::string());
         rand_result_str << std::hex << "randomized values: opcode: "
@@ -512,6 +565,33 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         str << "Made RI 2, next addr: " << std::hex << cur_iaddr;
         UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
         // register setup finished
+
+        // CSR setup
+        // CSR set to 0b10101 testing sets and clears
+        if (opcode == cpu_util::Opcode::SYS &&
+            !((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+              (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81)) {
+            cpu_util::make_instruction(cpu_util::Opcode::SYS,
+                                       cpu_util::F3::CSRRWI, cpu_util::F7::X,
+                                       0b10101,     // rs1
+                                       0,           // rs2
+                                       0,           // rd
+                                       imm & 0xFFF, // imm
+                                       0,           // data
+                                       0,           // rs1_val
+                                       0,           // rs2_val
+                                       0,           // addr
+                                       cur_iaddr,   // cur_iaddr
+                                       imem, dmem,
+                                       next_iaddr // next_iaddr
+            );
+            cur_iaddr = next_iaddr;
+            instruction_addresses.push(cur_iaddr);
+            str.str(std::string());
+            str << "Made CSRRW, next addr: " << std::hex << cur_iaddr;
+            UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
+        }
+        // CSR setup finished
 
         // if rs1_val gets overwritten
         if (rs1 == rs2)
@@ -682,17 +762,43 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             }
             break;
 
+        case (cpu_util::Opcode::SYS):
+            switch (funct3) {
+            case (cpu_util::F3::CSRRW):
+                rd_val = rs1_val;
+                break;
+            case (cpu_util::F3::CSRRS):
+                rd_val = rs1_val | 0b10101;
+                break;
+            case (cpu_util::F3::CSRRC):
+                rd_val = 0b10101 & (~rs1_val);
+                break;
+            case (cpu_util::F3::CSRRWI):
+                rd_val = rs1;
+                break;
+            case (cpu_util::F3::CSRRSI):
+                rd_val = rs1 | 0b10101;
+                break;
+            case (cpu_util::F3::CSRRCI):
+                rd_val = 0b10101 & (~rs1);
+                break;
+            default:
+                break;
+            }
+            break;
         // no rd
         case (cpu_util::Opcode::B):
         case (cpu_util::Opcode::S):
         case (cpu_util::Opcode::F):
-        case (cpu_util::Opcode::SYS):
         default:
             break;
         }
 
         cpu_seq_item check_item{nop};
         std::uint32_t check_store_imm = 0;
+        // Do not overwrite dmem[rs1_val+imm_sign_extended]
+        if (rs1_val + imm_sign_extended == check_store_imm)
+            check_store_imm += 4;
         switch (opcode) {
         // check rd
         case (cpu_util::Opcode::JAL):
@@ -702,9 +808,6 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         case (cpu_util::Opcode::LUI):
         case (cpu_util::Opcode::AUIPC):
         case (cpu_util::Opcode::L):
-            // Do not overwrite dmem[rs1_val+imm_sign_extended]
-            if (rs1_val + imm_sign_extended == check_store_imm)
-                check_store_imm += 4;
             cpu_util::make_instruction(cpu_util::Opcode::S, cpu_util::F3::SW,
                                        cpu_util::F7::X,
                                        0,               // rs1
@@ -746,9 +849,59 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             imem[cur_iaddr] = check_item;
             break;
 
+        case (cpu_util::Opcode::SYS):
+            // Read CSR to register 0x1F
+            cpu_util::make_instruction(cpu_util::Opcode::SYS,
+                                       cpu_util::F3::CSRRS, cpu_util::F7::X,
+                                       0,           // rs1
+                                       0,           // rs2
+                                       0x1f,        // rd
+                                       imm & 0xFFF, // imm
+                                       0,           // data
+                                       0,           // rs1_val
+                                       0,           // rs2_val
+                                       0,           // addr
+                                       cur_iaddr,   // cur_iaddr
+                                       imem, dmem,
+                                       next_iaddr // next_iaddr
+            );
+            cur_iaddr = next_iaddr;
+            instruction_addresses.push(cur_iaddr);
+            imem[cur_iaddr] = check_item; // check next iaddr
+            str.str(std::string());
+            str << "Made CSRRS, next addr: " << std::hex << cur_iaddr;
+            UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
+
+            // Store register 0x1F into check_store_imm
+            cpu_util::make_instruction(cpu_util::Opcode::S, cpu_util::F3::SW,
+                                       cpu_util::F7::X,
+                                       0,               // rs1
+                                       0x1f,            // rs2
+                                       0,               // rd
+                                       check_store_imm, // imm
+                                       0,               // data
+                                       0,               // rs1_val
+                                       rd_val,          // rs2_val
+                                       0,               // addr
+                                       cur_iaddr,       // cur_iaddr
+                                       imem, dmem,
+                                       next_iaddr // next_iaddr
+            );
+            cur_iaddr = next_iaddr;
+            instruction_addresses.push(cur_iaddr);
+            imem[cur_iaddr] = check_item;
+            str.str(std::string());
+            str << "Made Store, next addr: " << std::hex << cur_iaddr;
+            UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
+
+            if ((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+                (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81) {
+                should_check_csr_cycle_instret_store = true;
+            }
+            break;
+
         // no checking implemented yet
         case (cpu_util::Opcode::F):
-        case (cpu_util::Opcode::SYS):
         default:
             should_check_write = false;
             break;

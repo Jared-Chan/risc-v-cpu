@@ -41,6 +41,17 @@ std::uint32_t cpu_util::make_i_type_instruction(cpu_util::Opcode opcode,
     return idata;
 }
 
+std::uint32_t cpu_util::make_csr_instruction(cpu_util::Opcode opcode,
+                                             cpu_util::F3 f3, std::uint8_t rd,
+                                             std::uint32_t csr_src_dest,
+                                             std::uint8_t rs1_imm) {
+
+    std::uint32_t idata = 0;
+    idata = cpu_util::make_i_type_instruction(
+        opcode, f3, rd, csr_src_dest & 0xFFF, rs1_imm & 0x1F);
+    return idata;
+}
+
 std::uint32_t cpu_util::make_i_type_shift_instruction(
     cpu_util::Opcode opcode, cpu_util::F3 f3, cpu_util::F7 f7, std::uint8_t rd,
     std::uint32_t imm, std::uint8_t rs1) {
@@ -147,38 +158,34 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
 
     str << "PC: 0x" << std::hex << item.iaddr << ", I: ";
 
-    cpu_util::Opcode opcode = static_cast<cpu_util::Opcode>(item.idata & 0x7F);
-    cpu_util::F3 f3 = static_cast<cpu_util::F3>((item.idata >> 12) & 0x7);
-    cpu_util::F7 f7 = static_cast<cpu_util::F7>(item.idata >> 25);
-    std::uint32_t riuj_rd = (item.idata >> 7) & 0x1F;
-    std::uint32_t risb_rs1 = (item.idata >> 15) & 0x1F;
-    std::uint32_t rsb_rs2 = (item.idata >> 20) & 0x1F;
+    cpu_util::Opcode opcode;
+    cpu_util::F3 f3;
+    cpu_util::F7 f7;
+    std::uint8_t riuj_rd;
+    std::uint8_t risb_rs1;
+    std::uint8_t rsb_rs2;
 
-    std::uint32_t i_imm = (item.idata >> 20) & 0xFFF;
-    i_imm |= ((i_imm >> 11) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 11);
-    std::uint32_t s_imm =
-        ((item.idata >> 20) & 0xFE0) | ((item.idata >> 7) & 0x1F);
-    s_imm |= ((s_imm >> 11) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 11);
-    std::uint32_t b_imm =
-        ((item.idata >> 20) & 0x7E0) | (((item.idata >> 31) & 0x1) << 12) |
-        (((item.idata >> 8) & 0xF) << 1) | (((item.idata >> 7) & 0x1) << 11);
-    b_imm |= ((b_imm >> 12) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 12);
-    std::uint32_t u_imm = item.idata & 0xFFFFF000;
-    std::uint32_t j_imm = (((item.idata >> 21) & 0x3FF) << 1) |
-                          (((item.idata >> 31) & 0x1) << 20) |
-                          (((item.idata >> 12) & 0xFF) << 12) |
-                          (((item.idata >> 20) & 0x1) << 11);
-    j_imm |= ((j_imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20);
+    std::uint32_t i_imm;
+    std::uint32_t s_imm;
+    std::uint32_t b_imm;
+    std::uint32_t u_imm;
+    std::uint32_t j_imm;
+
+    cpu_seq_item _item = item;
+    cpu_util::decode_idata(_item, opcode, f3, f7, risb_rs1, rsb_rs2, riuj_rd,
+                           i_imm, s_imm, u_imm, b_imm, j_imm);
+
+    std::uint32_t csr_src_dest = i_imm;
 
     switch (opcode) {
     case (cpu_util::Opcode::JAL):
         str << " JAL to " << std::hex << j_imm;
-        str << " with rd 0x" << std::hex << riuj_rd;
+        str << " with rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     case (cpu_util::Opcode::JALR):
         str << " JALR with offset 0x" << std::hex << i_imm;
-        str << " and rs1 0x" << std::hex << risb_rs1;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " and rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     case (cpu_util::Opcode::RI):
         str << " RI ";
@@ -212,17 +219,17 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
             break;
         }
         str << " with imm 0x" << std::hex << i_imm;
-        str << " and rs1 0x" << std::hex << risb_rs1;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " and rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     case (cpu_util::Opcode::RR):
         str << " RR ";
         switch (f3) {
         case (cpu_util::F3::ADDSUB):
             if (f7 == cpu_util::F7::ADD)
-                str << " ADD " << std::hex << riuj_rd;
+                str << " ADD " << std::hex << static_cast<unsigned>(riuj_rd);
             else
-                str << " SUB " << std::hex << riuj_rd;
+                str << " SUB " << std::hex << static_cast<unsigned>(riuj_rd);
         case (cpu_util::F3::SLT):
             str << " SLT ";
             break;
@@ -248,35 +255,35 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
                 str << " SRL ";
             break;
         }
-        str << " with rs1 0x" << std::hex << risb_rs1;
-        str << " and rs2 0x" << std::hex << rsb_rs2;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " with rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rs2 0x" << std::hex << static_cast<unsigned>(rsb_rs2);
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     case (cpu_util::Opcode::LUI):
         str << " LUI ";
         str << " with imm 0x" << std::hex << u_imm;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     case (cpu_util::Opcode::AUIPC):
         str << " LUI ";
         str << " with imm 0x" << std::hex << u_imm;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
 
     case (cpu_util::Opcode::L):
         str << " L ";
         str << " with imm 0x" << std::hex << i_imm;
         str << " with width 0x" << std::hex << static_cast<unsigned>(f3);
-        str << " and rs1 0x" << std::hex << risb_rs1;
-        str << " and rd 0x" << std::hex << riuj_rd;
+        str << " and rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
 
     case (cpu_util::Opcode::S):
         str << " S ";
         str << " with imm 0x" << std::hex << s_imm;
         str << " with width 0x" << std::hex << static_cast<unsigned>(f3);
-        str << " and rs1 0x" << std::hex << risb_rs1;
-        str << " and rs2 0x" << std::hex << rsb_rs2;
+        str << " and rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rs2 0x" << std::hex << static_cast<unsigned>(rsb_rs2);
         break;
 
     case (cpu_util::Opcode::B):
@@ -304,8 +311,8 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
             break;
         }
         str << " with imm 0x" << std::hex << b_imm;
-        str << " and rs1 0x" << std::hex << risb_rs1;
-        str << " and rs2 0x" << std::hex << rsb_rs2;
+        str << " and rs1 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rs2 0x" << std::hex << static_cast<unsigned>(rsb_rs2);
         break;
 
     // not implemented, set to NOP
@@ -314,6 +321,31 @@ void cpu_util::print_instruction(const cpu_seq_item &item,
         break;
     case (cpu_util::Opcode::SYS):
         str << " SYS ";
+        switch (f3) {
+        case (cpu_util::F3::CSRRW):
+            str << "CSRRW ";
+            break;
+        case (cpu_util::F3::CSRRS):
+            str << "CSRRS ";
+            break;
+        case (cpu_util::F3::CSRRC):
+            str << "CSRRC ";
+            break;
+        case (cpu_util::F3::CSRRWI):
+            str << "CSRRWI ";
+            break;
+        case (cpu_util::F3::CSRRSI):
+            str << "CSRRSI ";
+            break;
+        case (cpu_util::F3::CSRRCI):
+            str << "CSRRCI ";
+            break;
+        default:
+            break;
+        }
+        str << " with src/dest 0x" << std::hex << csr_src_dest;
+        str << " and rs1/imm 0x" << std::hex << static_cast<unsigned>(risb_rs1);
+        str << " and rd 0x" << std::hex << static_cast<unsigned>(riuj_rd);
         break;
     default:
         break;
@@ -345,6 +377,8 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
      *
      * Only parameters relevant to opcode, (and/or f3, f7) are used, others are
      * ignored.
+     * For CSR instructions, rs1 is used for rs1 or uimm[4:0] while imm is used
+     * for CSR source/dest
      */
 
     std::uint32_t imm_12_signed_extended =
@@ -354,6 +388,8 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
         (imm & 0x1FFE) | ((((imm & 0x1FFF) >> 12) & 1) == 0 ? 0 : 0xFFFFE000);
 
     std::uint32_t baddr = cur_iaddr; // addr after branch, to be set
+
+    std::uint32_t csr_src_dest = imm & 0xFFF;
 
     cpu_seq_item item, exp_item;
 
@@ -477,9 +513,12 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
         next_iaddr = baddr;
         break;
 
+    case (cpu_util::Opcode::SYS):
+        item.idata = cpu_util::make_csr_instruction(cpu_util::Opcode::SYS, f3,
+                                                    rd, csr_src_dest, rs1);
+        break;
     // not implemented, set to NOP
     case (cpu_util::Opcode::F):
-    case (cpu_util::Opcode::SYS):
     default:
         item.idata = cpu_util::make_i_type_instruction(
             cpu_util::Opcode::RI, cpu_util::F3::ADDSUB, 0, 0, 0);

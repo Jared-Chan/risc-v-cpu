@@ -40,12 +40,24 @@
 `define F3_SLL 3'b001
 `define F3_SR 3'b101
 
+`define F3_CSRRW 3'b001
+`define F3_CSRRS 3'b010
+`define F3_CSRRC 3'b011
+`define F3_CSRRWI 3'b101
+`define F3_CSRRSI 3'b110
+`define F3_CSRRCI 3'b111
+
 `define F7_ADD 7'b0
 `define F7_SUB 7'b0100000
 `define F7_SRL 7'b0
 `define F7_SRA 7'b0100000
 
 `define RESET_PC 32'b0
+
+`define CSR_CYCLE 12'hC00
+`define CSR_CYCLE_H 12'hC80
+`define CSR_INSTRET 12'hC01
+`define CSR_INSTRET_H 12'hC81
 
 
 //`define DEBUG
@@ -101,8 +113,21 @@ module cpu (
   // General-purpose registers
   logic [`XLEN-1:0] x  [`RLEN];
 
+  // Control and Status Registers
+  logic [`XLEN-1:0] csr[ 4096];
+
   logic [`RLEN-1:0] pc;
   assign iaddr = pc;
+
+  // Cycle and Time counter
+  logic [63:0] cycle_time;
+  assign csr[`CSR_CYCLE]   = cycle_time[31:0];
+  assign csr[`CSR_CYCLE_H] = cycle_time[63:32];
+
+  // Instructions retired
+  logic [63:0] instret;
+  assign csr[`CSR_INSTRET]   = instret[31:0];
+  assign csr[`CSR_INSTRET_H] = instret[63:32];
 
 
   /* Decode */
@@ -157,6 +182,13 @@ module cpu (
   logic [31:0] j_imm;
   logic [ 4:0] j_rd;
 
+  // CSR
+  logic [31:0] csr_imm;
+  logic [11:0] csr_src_dest;
+  logic [ 4:0] csr_rs1;
+  logic [ 2:0] csr_f3;
+  logic [ 4:0] csr_rd;
+
 
   logic [31:0] dec_pc;  // pc of decoded instruction
 
@@ -186,6 +218,8 @@ module cpu (
 
       {j_rd} <= {idata[11:7]};
       j_imm <= {{12{idata[31]}}, idata[19:12], idata[20], idata[30:25], idata[24:21], 1'b0};
+      {csr_rs1, csr_f3, csr_rd} <= {idata[19:15], idata[14:12], idata[11:7]};
+      csr_imm <= {27'b0, idata[19:15]};
     end
   end
   /* End Decode */
@@ -215,14 +249,18 @@ module cpu (
       pc <= `RESET_PC;
       do_decode <= '0;
       wr <= '0;
+      cycle_time <= '0;
+      instret <= '0;
     end else begin
 
       pc <= pc + 4;
       do_decode <= '1;
       wr <= 0;
+      cycle_time <= cycle_time + 1;
 
       case (state)
         EXECUTE: begin
+          instret <= instret + 1;
           case (opcode)
             `OP_LUI: begin
               x[u_rd] <= u_imm;
@@ -303,6 +341,7 @@ module cpu (
               ex_i_f3 <= i_f3;
               ex_i_rd <= i_rd;
 
+              instret <= instret;
               pc <= pc;
               do_decode <= '0;
               state <= WAIT_READ;
@@ -313,6 +352,7 @@ module cpu (
               ex_s_f3 <= s_f3;
               ex_s_rs2 <= s_rs2;
 
+              instret <= instret;
               pc <= pc;
               do_decode <= '0;
               state <= WAIT_READ;
@@ -383,6 +423,34 @@ module cpu (
             `OP_F: begin
             end
             `OP_SYS: begin
+              case (csr_f3)
+                `F3_CSRRW: begin
+                  csr[csr_src_dest] <= x[csr_rs1];
+                  if (csr_rd != 0) x[csr_rd] <= csr[csr_src_dest];
+                end
+                `F3_CSRRS: begin
+                  x[csr_rd] <= csr[csr_src_dest];
+                  if (csr_rs1 != 0) csr[csr_src_dest] <= csr[csr_src_dest] | x[csr_rs1];
+                end
+                `F3_CSRRC: begin
+                  x[csr_rd] <= csr[csr_src_dest];
+                  if (csr_rs1 != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~x[csr_rs1]);
+                end
+                `F3_CSRRWI: begin
+                  csr[csr_src_dest] <= csr_imm;
+                  if (csr_rd != 0) x[csr_rd] <= csr[csr_src_dest];
+                end
+                `F3_CSRRSI: begin
+                  x[csr_rd] <= csr[csr_src_dest];
+                  if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] | csr_imm;
+                end
+                `F3_CSRRCI: begin
+                  x[csr_rd] <= csr[csr_src_dest];
+                  if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~csr_imm);
+                end
+                default: begin
+                end
+              endcase
             end
             default: begin
               pc <= pc;
@@ -404,6 +472,7 @@ module cpu (
           state <= WAIT_L_S;
         end
         WAIT_L_S: begin
+          instret <= instret + 1;
           do_decode <= '1;
           state <= EXECUTE;
           if (ex_opcode == `OP_L)

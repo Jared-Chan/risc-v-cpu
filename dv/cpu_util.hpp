@@ -51,6 +51,13 @@ enum class F3 {
     SLL = 0b001,
     SR = 0b101,
 
+    CSRRW = 0b001,
+    CSRRS = 0b010,
+    CSRRC = 0b011,
+    CSRRWI = 0b101,
+    CSRRSI = 0b110,
+    CSRRCI = 0b111,
+
     // don't care
     X = 0
 };
@@ -85,6 +92,9 @@ std::uint32_t make_s_type_instruction(Opcode opcode, F3 f3, std::uint8_t rs1,
                                       std::uint8_t rs2, std::uint32_t imm);
 std::uint32_t make_b_type_instruction(Opcode opcode, F3 f3, std::uint8_t rs1,
                                       std::uint8_t rs2, std::uint32_t imm);
+std::uint32_t make_csr_instruction(Opcode opcode, F3 f3, std::uint8_t rd,
+                                   std::uint32_t csr_src_dest,
+                                   std::uint8_t rs1_imm);
 
 bool is_nop(cpu_seq_item &item);
 void decode_idata(cpu_seq_item &item, Opcode &opcode, F3 &f3, F7 &f7,

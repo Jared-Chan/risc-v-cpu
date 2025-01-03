@@ -26,6 +26,7 @@ class cpu_covergroup : public covergroup {
     std::uint8_t iaddr4;
     std::uint8_t addr4;
     std::uint8_t wdata4;
+    std::uint32_t csr_src_dest;
 
     cpu_util::Opcode opcode;
     cpu_util::F3 f3;
@@ -63,6 +64,7 @@ class cpu_covergroup : public covergroup {
         opcode_u = static_cast<std::uint8_t>(opcode);
         f3_u = static_cast<std::uint8_t>(f3);
         f7_u = static_cast<std::uint8_t>(f7);
+        csr_src_dest = i_imm & 0xFFF;
         covergroup::sample();
     }
 
@@ -147,6 +149,9 @@ class cpu_covergroup : public covergroup {
 
     std::vector<std::uint8_t> four_bits{0, 1, 2,  3,  4,  5,  6,  7,
                                         8, 9, 10, 11, 12, 13, 14, 15};
+    std::vector<std::uint8_t> five_bits{
+        0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
     std::vector<std::uint8_t> four_mul{0, 4, 8, 12};
 
     COVERPOINT(std::uint8_t, data_lsb_cvp,
@@ -175,7 +180,8 @@ class cpu_covergroup : public covergroup {
         bin<std::uint8_t>("RR",
                           static_cast<std::uint8_t>(cpu_util::Opcode::RR)),
         bin<std::uint8_t>("F", static_cast<std::uint8_t>(cpu_util::Opcode::F)),
-        bin<std::uint8_t>("SYS", static_cast<std::uint8_t>(cpu_util::Opcode::SYS))};
+        bin<std::uint8_t>("SYS",
+                          static_cast<std::uint8_t>(cpu_util::Opcode::SYS))};
 
     COVERPOINT(std::uint8_t, b_f3_cvp, f3_u, opcode == cpu_util::Opcode::B){
         bin<std::uint8_t>("BEQ", static_cast<std::uint8_t>(cpu_util::F3::BEQ)),
@@ -214,6 +220,31 @@ class cpu_covergroup : public covergroup {
         bin<std::uint8_t>("SLL", static_cast<std::uint8_t>(cpu_util::F3::SLL)),
         bin<std::uint8_t>("SR", static_cast<std::uint8_t>(cpu_util::F3::SR))};
 
+    COVERPOINT(std::uint8_t, sys_f3_cvp, f3_u,
+               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)){
+        bin<std::uint8_t>("CSRRW",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRW)),
+        bin<std::uint8_t>("CSRRS",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRS)),
+        bin<std::uint8_t>("CSRRC",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRC)),
+        bin<std::uint8_t>("CSRRWI",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRWI)),
+        bin<std::uint8_t>("CSRRSI",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRSI)),
+        bin<std::uint8_t>("CSRRCI",
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRCI))};
+
+    COVERPOINT(std::uint32_t, sys_csr_src_dest_cvp, csr_src_dest,
+               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)){
+        bin_array<std::uint32_t>("csr_src_dest", [] {
+            std::vector<std::uint32_t> v;
+            for (int i = 0; i < 4096; i++) {
+                v.push_back(i);
+            }
+            return v;
+        }())};
+
     COVERPOINT(std::uint8_t, addsub_cvp, f7_u,
                (opcode == cpu_util::Opcode::RR ||
                 opcode == cpu_util::Opcode::RI) &&
@@ -227,6 +258,23 @@ class cpu_covergroup : public covergroup {
                    f3 == cpu_util::F3::SR){
         bin<std::uint8_t>("SRL", static_cast<std::uint8_t>(cpu_util::F7::SRL)),
         bin<std::uint8_t>("SRA", static_cast<std::uint8_t>(cpu_util::F7::SRA))};
+
+    COVERPOINT(std::uint8_t, rs1_cvp,
+               rs1){bin_array<std::uint8_t>("rs1", five_bits)};
+    COVERPOINT(std::uint8_t, rs2_cvp,
+               rs2){bin_array<std::uint8_t>("rs2", five_bits)};
+    COVERPOINT(std::uint8_t, rd_cvp,
+               rd){bin_array<std::uint8_t>("rd", five_bits)};
+
+    cross<std::uint8_t, std::uint8_t> opcode_rs1_cross =
+        cross<std::uint8_t, std::uint8_t>(this, "opcode_rs1_cross", &opcode_cvp,
+                                          &rs1_cvp);
+    cross<std::uint8_t, std::uint8_t> opcode_rs2_cross =
+        cross<std::uint8_t, std::uint8_t>(this, "opcode_rs2_cross", &opcode_cvp,
+                                          &rs2_cvp);
+    cross<std::uint8_t, std::uint8_t> opcode_rd_cross =
+        cross<std::uint8_t, std::uint8_t>(this, "opcode_rd_cross", &opcode_cvp,
+                                          &rd_cvp);
 
     cross<bool, std::uint32_t, std::uint32_t, std::uint32_t, std::uint8_t,
           std::uint8_t, std::uint8_t>
