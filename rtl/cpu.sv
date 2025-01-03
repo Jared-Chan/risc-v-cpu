@@ -52,16 +52,17 @@
 `ifdef DEBUG
 `define PRINT_R_TYPE $strobe("R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
 dec_pc, r_rs1, r_rs2, r_rd, r_f7, r_f3);
-`define PRINT_I_TYPE $strobe("I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h \
-smt=0x%0h",\
+`define PRINT_I_TYPE $strobe(\
+"I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
 dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
-`define PRINT_I_TYPE_2 $strobe("I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h \
-f3=0x%0h smt=0x%0h ex_i_rd=0x%0h",\
+`define PRINT_I_TYPE_2 $strobe(\
+"I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h ex_i_rd=0x%0h",\
 dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt, ex_i_rd);
-`define PRINT_S_TYPE $strobe("S type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
+`define PRINT_S_TYPE $strobe(\
+"S type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
 dec_pc, s_rs1, s_rs2, s_f3, s_imm);
-`define PRINT_S_TYPE_2 $strobe("S type cycle 2: dec_pc=0x%0h \
-rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h",\
+`define PRINT_S_TYPE_2 $strobe(\
+"S type cycle 2: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h",\
 dec_pc, s_rs1, ex_s_rs2, ex_s_f3, s_imm);
 `define PRINT_B_TYPE $strobe("B type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
 dec_pc, b_rs1, b_rs2, b_f3, b_imm);
@@ -77,18 +78,7 @@ dec_pc, j_rd, j_imm);
   $strobe("  pc=0x%0h", pc);
 `define PRINT_STEP $strobe( \
           "time=%0t opcode=0x%0h pc=0x%0h dec_pc=0x%0h iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h pstate=0x%0h do_d=0x%0h", \
-          $time, opcode, pc, dec_pc, iaddr, idata, addr, data, wdata, wr, pipeline_state, do_decode);
-`else
-`define PRINT_R_TYPE
-`define PRINT_I_TYPE
-`define PRINT_I_TYPE_2
-`define PRINT_S_TYPE
-`define PRINT_S_TYPE_2
-`define PRINT_B_TYPE
-`define PRINT_U_TYPE
-`define PRINT_J_TYPE
-`define PRINT_X
-`define PRINT_STEP
+          $time, opcode, pc, dec_pc, iaddr, idata, addr, data, wdata, wr, state, do_decode);
 `endif
 
 
@@ -113,7 +103,6 @@ module cpu (
 
   logic [`RLEN-1:0] pc;
   assign iaddr = pc;
-
 
 
   /* Decode */
@@ -201,113 +190,107 @@ module cpu (
   end
   /* End Decode */
 
+  /* Execute */
   logic [6:0] ex_opcode;
   logic [2:0] ex_i_f3;
   logic [4:0] ex_i_rd;
   logic [4:0] ex_s_rs2;
   logic [2:0] ex_s_f3;
 
-  /* Pipeline manager */
   typedef enum {
     EXECUTE,
     WAIT_PC,
     WAIT_DECODE,
     WAIT_L_S,
-    WAIT_READ
-  } pipeline_state_e;
+    WAIT_READ,
+    XXX
+  } state_e;
 
-  logic do_decode;
-  pipeline_state_e pipeline_state;
+  logic   do_decode;
+  state_e state;
 
   always_ff @(posedge clk, negedge rst_n) begin : execute
     if (!rst_n) begin
-      wr <= '0;
+      state <= WAIT_PC;
       pc <= `RESET_PC;
       do_decode <= '0;
-      pipeline_state <= WAIT_PC;
+      wr <= '0;
     end else begin
-      `PRINT_STEP
 
       pc <= pc + 4;
       do_decode <= '1;
-
       wr <= 0;
 
-      case (pipeline_state)
+      case (state)
         EXECUTE: begin
           case (opcode)
             `OP_LUI: begin
-              `PRINT_U_TYPE
               x[u_rd] <= u_imm;
             end
             `OP_AUIPC: begin
-              `PRINT_U_TYPE
               x[u_rd] <= dec_pc + u_imm;
             end
             `OP_JAL: begin
-              `PRINT_J_TYPE
               x[j_rd] <= dec_pc + 4;
               if (j_imm != dec_pc + 4) begin
                 pc <= j_imm;
                 do_decode <= '0;
-                pipeline_state <= WAIT_PC;
+                state <= WAIT_PC;
               end
               // else pc = pc + 4 is valid
               // should check addr alignment
             end
             `OP_JALR: begin
-              `PRINT_I_TYPE
               x[i_rd] <= dec_pc + 4;
               // should check addr alignment
               if (((i_imm + x[i_rs1]) & 32'hFFFFFFFE) != dec_pc + 4) begin
                 pc <= (i_imm + x[i_rs1]) & 32'hFFFFFFFE;
                 do_decode <= '0;
-                pipeline_state <= WAIT_PC;
+                state <= WAIT_PC;
               end
             end
             `OP_B: begin
-              `PRINT_B_TYPE
               case (b_f3)
                 `F3_BEQ: begin
                   if (x[b_rs1] == x[b_rs2]) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 `F3_BNE: begin
                   if (x[b_rs1] != x[b_rs2]) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 `F3_BLT: begin
                   if (b_rs1_s < b_rs2_s) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 `F3_BGE: begin
                   if (b_rs1_s >= b_rs2_s) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 `F3_BLTU: begin
                   if (x[b_rs1] < x[b_rs2]) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 `F3_BGEU: begin
                   if (x[b_rs1] >= x[b_rs2]) begin
                     pc <= dec_pc + b_imm;
                     do_decode <= '0;
-                    pipeline_state <= WAIT_PC;
+                    state <= WAIT_PC;
                   end
                 end
                 default: begin
@@ -315,27 +298,26 @@ module cpu (
               endcase
             end
             `OP_L: begin
-              `PRINT_I_TYPE
-              pc <= pc;
               addr <= x[i_rs1] + i_imm;
-              do_decode <= '0;
-              pipeline_state <= WAIT_READ;
               ex_opcode <= opcode;
               ex_i_f3 <= i_f3;
               ex_i_rd <= i_rd;
+
+              pc <= pc;
+              do_decode <= '0;
+              state <= WAIT_READ;
             end
             `OP_S: begin
-              `PRINT_S_TYPE
-              pc <= pc;
               addr <= x[s_rs1] + s_imm;
-              do_decode <= '0;
-              pipeline_state <= WAIT_READ;
               ex_opcode <= opcode;
               ex_s_f3 <= s_f3;
               ex_s_rs2 <= s_rs2;
+
+              pc <= pc;
+              do_decode <= '0;
+              state <= WAIT_READ;
             end
             `OP_RI: begin
-              `PRINT_I_TYPE
               case (i_f3)
                 `F3_ADDSUB: begin
                   x[i_rd] <= x[i_rs1] + i_imm;
@@ -367,7 +349,6 @@ module cpu (
               endcase
             end
             `OP_RR: begin
-              `PRINT_R_TYPE
               case (r_f3)
                 `F3_ADDSUB: begin
                   if (r_f7 == `F7_ADD) x[r_rd] <= x[r_rs1] + x[r_rs2];
@@ -411,20 +392,20 @@ module cpu (
         WAIT_PC: begin
           //pc <= pc;
           do_decode <= '1;
-          pipeline_state <= WAIT_DECODE;
+          state <= WAIT_DECODE;
         end
         WAIT_DECODE: begin
           do_decode <= '1;
-          pipeline_state <= EXECUTE;
+          state <= EXECUTE;
         end
         WAIT_READ: begin
           pc <= pc;
           do_decode <= '0;
-          pipeline_state <= WAIT_L_S;
+          state <= WAIT_L_S;
         end
         WAIT_L_S: begin
           do_decode <= '1;
-          pipeline_state <= EXECUTE;
+          state <= EXECUTE;
           if (ex_opcode == `OP_L)
             case (ex_i_f3)
               `F3_LB: begin
@@ -434,7 +415,6 @@ module cpu (
                 x[ex_i_rd] <= {{16{data[15]}}, data[15:0]};
               end
               `F3_LW: begin
-                `PRINT_I_TYPE_2
                 x[ex_i_rd] <= data;
               end
               `F3_LBU: begin
@@ -447,7 +427,6 @@ module cpu (
               end
             endcase  // OP_L f3
           else if (ex_opcode == `OP_S) begin
-            `PRINT_S_TYPE_2
             wr <= '1;
             case (ex_s_f3)
               `F3_SB: begin
@@ -466,13 +445,71 @@ module cpu (
         end
         default: begin
         end
-      endcase
-
-
+      endcase  // state
     end
-
-    `PRINT_X
     x[0] <= '0;  // hardwire to 0
   end
+
+
+`ifdef DEBUG
+  always_ff @(posedge clk, negedge rst_n) begin : debug
+    if (!rst_n) begin
+    end else begin
+      `PRINT_STEP
+      case (state)
+        EXECUTE: begin
+          case (opcode)
+            `OP_LUI: begin
+              `PRINT_U_TYPE
+            end
+            `OP_AUIPC: begin
+              `PRINT_U_TYPE
+            end
+            `OP_JAL: begin
+              `PRINT_J_TYPE
+            end
+            `OP_JALR: begin
+              `PRINT_I_TYPE
+            end
+            `OP_B: begin
+              `PRINT_B_TYPE
+            end
+            `OP_L: begin
+              `PRINT_I_TYPE
+            end
+            `OP_S: begin
+              `PRINT_S_TYPE
+            end
+            `OP_RI: begin
+              `PRINT_I_TYPE
+            end
+            `OP_RR: begin
+              `PRINT_R_TYPE
+            end
+            `OP_F: begin
+            end
+            `OP_SYS: begin
+            end
+            default: begin
+            end
+          endcase  // opcode
+        end
+        WAIT_PC: begin
+        end
+        WAIT_DECODE: begin
+        end
+        WAIT_READ: begin
+        end
+        WAIT_L_S: begin
+          if (ex_opcode == `OP_L) `PRINT_I_TYPE_2
+          else if (ex_opcode == `OP_S) `PRINT_S_TYPE_2
+        end
+        default: begin
+        end
+      endcase
+    end
+    `PRINT_X
+  end
+`endif
 
 endmodule
