@@ -14,12 +14,12 @@ int sc_main(int, char *[]) {
     Vcpu *dut = new Vcpu("dut");
     cpu_if *cif = new cpu_if("cif");
 
-    dut->addr.bind(cif->addr);
-    dut->data.bind(cif->data);
-    dut->wdata.bind(cif->wdata);
-    dut->idata.bind(cif->idata);
-    dut->iaddr.bind(cif->iaddr);
-    dut->wr.bind(cif->wr);
+    dut->addr_o.bind(cif->addr);
+    dut->data_i.bind(cif->data);
+    dut->wdata_o.bind(cif->wdata);
+    dut->idata_i.bind(cif->idata);
+    dut->iaddr_o.bind(cif->iaddr);
+    dut->wr_o.bind(cif->wr);
     dut->rst_n.bind(cif->rst_n);
     dut->clk.bind(cif->clk);
 

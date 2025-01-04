@@ -38,7 +38,9 @@ include_directories($ENV{FC4SC_INCLUDE})
 add_library(dut)
 verilate(dut
 SYSTEMC
-SOURCES rtl/cpu.sv)
+SOURCES rtl/cpu.sv
+INCLUDE_DIRS rtl/
+)
 verilator_link_systemc(dut)
 
 # Testbench
@@ -57,6 +59,7 @@ dv/cpu_sequencer.hpp
 dv/cpu_scenario_item.hpp
 dv/cpu_util.hpp
 dv/cpu_util.cpp
+dv/cpu_covergroup.hpp
 dv/cpu_coverage_subscriber.hpp
 )
 

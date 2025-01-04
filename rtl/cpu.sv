@@ -1,112 +1,16 @@
-`define RLEN 32
-`define XLEN 32
-`define IALIGN_B 4
-
-`define OP_LUI 7'b0110111
-`define OP_AUIPC 7'b0010111
-`define OP_JAL 7'b1101111
-`define OP_JALR 7'b1100111
-`define OP_B 7'b1100011 // branch
-`define OP_L 7'b0000011 // load
-`define OP_S 7'b0100011 // store
-`define OP_RI 7'b0010011 // reg-imm
-`define OP_RR 7'b0110011 // reg-reg
-`define OP_F 7'b0001111 // fence
-`define OP_SYS 7'b1110011 // system
-
-`define F3_BEQ 3'b000
-`define F3_BNE 3'b001
-`define F3_BLT 3'b100
-`define F3_BGE 3'b101
-`define F3_BLTU 3'b110
-`define F3_BGEU 3'b111
-
-`define F3_LB 3'b000
-`define F3_LH 3'b001
-`define F3_LW 3'b010
-`define F3_LBU 3'b100
-`define F3_LHU 3'b101
-
-`define F3_SB 3'b000
-`define F3_SH 3'b001
-`define F3_SW 3'b010
-
-`define F3_ADDSUB 3'b000
-`define F3_SLT 3'b010
-`define F3_SLTU 3'b011
-`define F3_XOR 3'b100
-`define F3_OR 3'b110
-`define F3_AND 3'b111
-`define F3_SLL 3'b001
-`define F3_SR 3'b101
-
-`define F3_CSRRW 3'b001
-`define F3_CSRRS 3'b010
-`define F3_CSRRC 3'b011
-`define F3_CSRRWI 3'b101
-`define F3_CSRRSI 3'b110
-`define F3_CSRRCI 3'b111
-
-`define F7_ADD 7'b0
-`define F7_SUB 7'b0100000
-`define F7_SRL 7'b0
-`define F7_SRA 7'b0100000
-
-`define RESET_PC 32'b0
-
-`define CSR_CYCLE 12'hC00
-`define CSR_CYCLE_H 12'hC80
-`define CSR_INSTRET 12'hC01
-`define CSR_INSTRET_H 12'hC81
-
-
-//`define DEBUG
-`ifdef DEBUG
-`define PRINT_R_TYPE $strobe("R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
-dec_pc, r_rs1, r_rs2, r_rd, r_f7, r_f3);
-`define PRINT_I_TYPE $strobe(\
-"I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
-dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
-`define PRINT_I_TYPE_2 $strobe(\
-"I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h ex_i_rd=0x%0h",\
-dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt, ex_i_rd);
-`define PRINT_S_TYPE $strobe(\
-"S type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-dec_pc, s_rs1, s_rs2, s_f3, s_imm);
-`define PRINT_S_TYPE_2 $strobe(\
-"S type cycle 2: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h",\
-dec_pc, s_rs1, ex_s_rs2, ex_s_f3, s_imm);
-`define PRINT_B_TYPE $strobe("B type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-dec_pc, b_rs1, b_rs2, b_f3, b_imm);
-`define PRINT_U_TYPE $strobe("U type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
-dec_pc, u_rd, u_imm);
-`define PRINT_J_TYPE $strobe("J type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
-dec_pc, j_rd, j_imm);
-`define PRINT_X \
-  $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
-  $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
-  $strobe("  x16=0x%0h x17=0x%0h x18=0x%0h x19=0x%0h x20=0x%0h x21=0x%0h x22=0x%0h x23=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
-  $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]); \
-  $strobe("  pc=0x%0h", pc);
-`define PRINT_STEP $strobe( \
-          "time=%0t opcode=0x%0h pc=0x%0h dec_pc=0x%0h iaddr=0x%0h idata=0x%0h addr=0x%0h data=0x%0h wdata=0x%0h wr=0x%0h pstate=0x%0h do_d=0x%0h", \
-          $time, opcode, pc, dec_pc, iaddr, idata, addr, data, wdata, wr, state, do_decode);
-`endif
-
-
+`include "cpu.svh"
 
 module cpu (
     input logic clk,
     input logic rst_n,
 
     // Memory
-    output logic [31:0] iaddr,
-    input  logic [31:0] idata,
-
-    output logic [31:0] addr,
-    output logic [31:0] wdata,
-    output logic wr,
-    input logic [31:0] data
+    output logic [31:0] iaddr_o,
+    input logic [31:0] idata_i,
+    output logic [31:0] addr_o,
+    output logic [31:0] wdata_o,
+    input logic [31:0] data_i,
+    output logic wr_o
 
 );
 
@@ -117,7 +21,7 @@ module cpu (
   logic [`XLEN-1:0] csr[ 4096];
 
   logic [`RLEN-1:0] pc;
-  assign iaddr = pc;
+  assign iaddr_o = pc;
 
   // Cycle and Time counter
   logic [63:0] cycle_time;
@@ -198,28 +102,30 @@ module cpu (
       // pc is the pc of the next instruction
       // pc - 4 is the pc of the instruction being decoded
       dec_pc <= pc - 4;
-      opcode <= idata[6:0];
+      opcode <= idata_i[6:0];
 
       {r_f7, r_rs2, r_rs1, r_f3, r_rd} <= {
-        idata[31:25], idata[24:20], idata[19:15], idata[14:12], idata[11:7]
+        idata_i[31:25], idata_i[24:20], idata_i[19:15], idata_i[14:12], idata_i[11:7]
       };
 
-      {i_rs1, i_f3, i_rd} <= {idata[19:15], idata[14:12], idata[11:7]};
-      i_imm <= {{21{idata[31]}}, idata[30:25], idata[24:21], idata[20]};
+      {i_rs1, i_f3, i_rd} <= {idata_i[19:15], idata_i[14:12], idata_i[11:7]};
+      i_imm <= {{21{idata_i[31]}}, idata_i[30:25], idata_i[24:21], idata_i[20]};
 
-      {s_rs2, s_rs1, s_f3} <= {idata[24:20], idata[19:15], idata[14:12]};
-      s_imm <= {{21{idata[31]}}, idata[30:25], idata[11:8], idata[7]};
+      {s_rs2, s_rs1, s_f3} <= {idata_i[24:20], idata_i[19:15], idata_i[14:12]};
+      s_imm <= {{21{idata_i[31]}}, idata_i[30:25], idata_i[11:8], idata_i[7]};
 
-      {b_rs2, b_rs1, b_f3} <= {idata[24:20], idata[19:15], idata[14:12]};
-      b_imm <= {{20{idata[31]}}, idata[7], idata[30:25], idata[11:8], 1'b0};
+      {b_rs2, b_rs1, b_f3} <= {idata_i[24:20], idata_i[19:15], idata_i[14:12]};
+      b_imm <= {{20{idata_i[31]}}, idata_i[7], idata_i[30:25], idata_i[11:8], 1'b0};
 
-      {u_rd} <= {idata[11:7]};
-      u_imm <= {idata[31], idata[30:20], idata[19:12], 12'b0};
+      {u_rd} <= {idata_i[11:7]};
+      u_imm <= {idata_i[31], idata_i[30:20], idata_i[19:12], 12'b0};
 
-      {j_rd} <= {idata[11:7]};
-      j_imm <= {{12{idata[31]}}, idata[19:12], idata[20], idata[30:25], idata[24:21], 1'b0};
-      {csr_rs1, csr_f3, csr_rd} <= {idata[19:15], idata[14:12], idata[11:7]};
-      csr_imm <= {27'b0, idata[19:15]};
+      {j_rd} <= {idata_i[11:7]};
+      j_imm <= {
+        {12{idata_i[31]}}, idata_i[19:12], idata_i[20], idata_i[30:25], idata_i[24:21], 1'b0
+      };
+      {csr_rs1, csr_f3, csr_rd} <= {idata_i[19:15], idata_i[14:12], idata_i[11:7]};
+      csr_imm <= {27'b0, idata_i[19:15]};
     end
   end
   /* End Decode */
@@ -248,20 +154,20 @@ module cpu (
       state <= WAIT_PC;
       pc <= `RESET_PC;
       do_decode <= '0;
-      wr <= '0;
+      wr_o <= '0;
       cycle_time <= '0;
       instret <= '0;
     end else begin
 
       pc <= pc + 4;
       do_decode <= '1;
-      wr <= 0;
+      wr_o <= 0;
       cycle_time <= cycle_time + 1;
 
-      case (state)
+      unique case (state)
         EXECUTE: begin
           instret <= instret + 1;
-          case (opcode)
+          unique case (opcode)
             `OP_LUI: begin
               x[u_rd] <= u_imm;
             end
@@ -276,11 +182,11 @@ module cpu (
                 state <= WAIT_PC;
               end
               // else pc = pc + 4 is valid
-              // should check addr alignment
+              // should check addr_o alignment
             end
             `OP_JALR: begin
               x[i_rd] <= dec_pc + 4;
-              // should check addr alignment
+              // should check addr_o alignment
               if (((i_imm + x[i_rs1]) & 32'hFFFFFFFE) != dec_pc + 4) begin
                 pc <= (i_imm + x[i_rs1]) & 32'hFFFFFFFE;
                 do_decode <= '0;
@@ -288,7 +194,7 @@ module cpu (
               end
             end
             `OP_B: begin
-              case (b_f3)
+              unique case (b_f3)
                 `F3_BEQ: begin
                   if (x[b_rs1] == x[b_rs2]) begin
                     pc <= dec_pc + b_imm;
@@ -336,7 +242,7 @@ module cpu (
               endcase
             end
             `OP_L: begin
-              addr <= x[i_rs1] + i_imm;
+              addr_o <= x[i_rs1] + i_imm;
               ex_opcode <= opcode;
               ex_i_f3 <= i_f3;
               ex_i_rd <= i_rd;
@@ -347,7 +253,7 @@ module cpu (
               state <= WAIT_READ;
             end
             `OP_S: begin
-              addr <= x[s_rs1] + s_imm;
+              addr_o <= x[s_rs1] + s_imm;
               ex_opcode <= opcode;
               ex_s_f3 <= s_f3;
               ex_s_rs2 <= s_rs2;
@@ -358,7 +264,7 @@ module cpu (
               state <= WAIT_READ;
             end
             `OP_RI: begin
-              case (i_f3)
+              unique case (i_f3)
                 `F3_ADDSUB: begin
                   x[i_rd] <= x[i_rs1] + i_imm;
                 end
@@ -389,7 +295,7 @@ module cpu (
               endcase
             end
             `OP_RR: begin
-              case (r_f3)
+              unique case (r_f3)
                 `F3_ADDSUB: begin
                   if (r_f7 == `F7_ADD) x[r_rd] <= x[r_rs1] + x[r_rs2];
                   else x[r_rd] <= x[r_rs1] - x[r_rs2];
@@ -423,7 +329,7 @@ module cpu (
             `OP_F: begin
             end
             `OP_SYS: begin
-              case (csr_f3)
+              unique case (csr_f3)
                 `F3_CSRRW: begin
                   csr[csr_src_dest] <= x[csr_rs1];
                   if (csr_rd != 0) x[csr_rd] <= csr[csr_src_dest];
@@ -476,36 +382,36 @@ module cpu (
           do_decode <= '1;
           state <= EXECUTE;
           if (ex_opcode == `OP_L)
-            case (ex_i_f3)
+            unique case (ex_i_f3)
               `F3_LB: begin
-                x[ex_i_rd] <= {{24{data[7]}}, data[7:0]};
+                x[ex_i_rd] <= {{24{data_i[7]}}, data_i[7:0]};
               end
               `F3_LH: begin
-                x[ex_i_rd] <= {{16{data[15]}}, data[15:0]};
+                x[ex_i_rd] <= {{16{data_i[15]}}, data_i[15:0]};
               end
               `F3_LW: begin
-                x[ex_i_rd] <= data;
+                x[ex_i_rd] <= data_i;
               end
               `F3_LBU: begin
-                x[ex_i_rd] <= {{24'b0}, data[7:0]};
+                x[ex_i_rd] <= {{24'b0}, data_i[7:0]};
               end
               `F3_LHU: begin
-                x[ex_i_rd] <= {{16'b0}, data[15:0]};
+                x[ex_i_rd] <= {{16'b0}, data_i[15:0]};
               end
               default: begin
               end
             endcase  // OP_L f3
           else if (ex_opcode == `OP_S) begin
-            wr <= '1;
-            case (ex_s_f3)
+            wr_o <= '1;
+            unique case (ex_s_f3)
               `F3_SB: begin
-                wdata <= {data[31:8], x[ex_s_rs2][7:0]};
+                wdata_o <= {data_i[31:8], x[ex_s_rs2][7:0]};
               end
               `F3_SH: begin
-                wdata <= {data[31:16], x[ex_s_rs2][15:0]};
+                wdata_o <= {data_i[31:16], x[ex_s_rs2][15:0]};
               end
               `F3_SW: begin
-                wdata <= x[ex_s_rs2];
+                wdata_o <= x[ex_s_rs2];
               end
               default: begin
               end
@@ -525,9 +431,9 @@ module cpu (
     if (!rst_n) begin
     end else begin
       `PRINT_STEP
-      case (state)
+      unique case (state)
         EXECUTE: begin
-          case (opcode)
+          unique case (opcode)
             `OP_LUI: begin
               `PRINT_U_TYPE
             end
