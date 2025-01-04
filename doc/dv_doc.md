@@ -83,7 +83,7 @@ It contains a `length` member variable configured in `dv/sc_main.cpp`, and a `cp
 * `randomize()`
     * an inherited function for randomization
 * `generate_instructions(...)`
-    * based on randomized fields, generate 
+    * based on randomized fields, generates
         * 6-9 instructions 
         * expected instruction addresses
         * expected read and write addresses and data
