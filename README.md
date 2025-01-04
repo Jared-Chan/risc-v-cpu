@@ -32,3 +32,19 @@ Additional CRAVE requirements
 * [CUDD](https://github.com/ivmai/cudd)
 * [GLOG](https://github.com/google/glog)
 * [BOOST](https://www.boost.org/)
+
+`CMakeLists.txt` requires the following environment variables to be set
+* `UVM_SYSTEMC_INCLUDE`
+* `UVM_SYSTEMC_LIBDIR`
+* `CRAVE_INCLUDE`
+* `CRAVE_LIBDIR`
+* `CRAVE_UVM_INCLUDE`
+* `Z3_INCLUDE`
+* `Z3_LIBDIR`
+* `CUDD_INCLUDE`
+* `CUDD_LIBDIR`
+* `GLOG_INCLUDE`
+* `GLOG_LIBDIR`
+* `BOOST_INCLUDE`
+* `BOOST_LIBDIR`
+* `FC4SC_INCLUDE`
