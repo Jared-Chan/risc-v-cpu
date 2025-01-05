@@ -2,6 +2,8 @@
 
 A simple 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions.
 
+The design is written in SystemVerilog. Design verification is done using UVM-SystemC, with Verilator as the simulator, CRAVE as the constrained randomization environment, and FC4SC as the functional coverage collector.
+
 [Technical specification](./doc/technical_specification.md)
 
 [Design verification document](./doc/dv_doc.md)
