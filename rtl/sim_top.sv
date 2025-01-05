@@ -1,5 +1,5 @@
-// Bring up
-module top ();
+// simulation
+module sim_top ();
 
   logic clk;
   logic rst_n;

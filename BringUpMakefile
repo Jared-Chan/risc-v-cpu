@@ -8,7 +8,7 @@ endif
 INCLUDE_DIR := ./rtl
 
 FILES := \
-    ./rtl/top.sv\
+    ./rtl/bringup_top.sv\
     ./rtl/cpu.sv
 
 default:
