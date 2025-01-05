@@ -10,8 +10,8 @@
 ## Current status
 
 Summary
-* functional coverage: 99.65%
-* `FENCE` isn't implemented
+* functional coverage: 95.43%
+* `FENCE`, `ECALL`, and `EBREAK` aren't implemented
 
 Details: [coverage results](./coverage_results.xml)
 

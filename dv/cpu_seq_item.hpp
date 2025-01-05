@@ -1,7 +1,6 @@
 #ifndef CPU_SEQ_ITEM_H
 #define CPU_SEQ_ITEM_H
 
-#include "uvmsc/macros/uvm_object_defines.h"
 #include <systemc>
 #include <uvm>
 

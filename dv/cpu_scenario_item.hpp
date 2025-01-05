@@ -4,14 +4,6 @@
 #include "cpu_seq_item.hpp"
 #include "cpu_util.hpp"
 
-#include "crave/experimental/Constraint.hpp"
-#include "crave/experimental/Object.hpp"
-#include "crave/experimental/Variable.hpp"
-#include "crave/frontend/Operators.hpp"
-#include "uvm_randomized_sequence_item.h"
-#include "uvmsc/base/uvm_object_globals.h"
-#include "uvmsc/macros/uvm_message_defines.h"
-#include "uvmsc/macros/uvm_object_defines.h"
 #include <crave2uvm.h>
 #include <systemc>
 #include <uvm>
@@ -398,19 +390,24 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     }
 
     void generate_instructions() {
-        /* Based on randomized fields, put
-         * - into imem
-         *     - instructions and inputs to DUT
-         * - into dmem
-         *     - data and expected output
+        /* This function makes a unit test based on the input opcode and
+         * instruction parameters. It modifies the output unit test properties.
          *
+         * `should_check_write`: whether the tester should confirm a write to
+         * memory at the end of the test `should_check_csr_cycle_instret_store`:
+         * a special case of `should_check_write` where an expected `wdata` is
+         * not provided `instruction_addresses`: where expected instruction
+         * addresses to be fetched are put `imem`: where instructions are put,
+         * mapping `iaddr` to `idata` `dmem`: where read data or expected write
+         * data is put, mapping `addr` to `data` or `addr` to `wdata` and `wr`
          */
         cycles = 0;
         error = false;
         checked_write = false;
+        first_instruction = true;
+
         should_check_write = true;
         should_check_csr_cycle_instret_store = false;
-        first_instruction = true;
         instruction_addresses = std::queue<std::uint32_t>{};
         imem = std::map<std::uint32_t, cpu_seq_item>{};
         dmem = std::map<std::uint32_t, cpu_seq_item>{};

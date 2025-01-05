@@ -58,11 +58,30 @@ enum class F3 {
     CSRRSI = 0b110,
     CSRRCI = 0b111,
 
+    PRIV = 0b000,
+
     // don't care
     X = 0
 };
 
 enum class F7 { ADD = 0b0, SUB = 0b0100000, SRL = 0b0, SRA = 0b0100000, X = 0 };
+
+enum class F12 { ECALL = 0b0, EBREAK = 0b1, X = 0 };
+
+void make_unit_test(
+
+    // Input: instruction under testing
+    cpu_util::Opcode &opcode, cpu_util::F7 &funct7, cpu_util::F3 &funct3,
+    std::uint8_t &rs1, std::uint8_t &rs2, std::uint8_t &rd,
+    std::uint32_t &rs1_val, std::uint32_t &rs2_val, std::uint32_t &imm,
+    std::uint32_t &data, std::uint32_t &addr, std::uint32_t &iaddr,
+    cpu_seq_item &nop,
+
+    // Output: unit test properties
+    bool &should_check_write, bool &should_check_csr_cycle_instret_store,
+    std::queue<std::uint32_t> &instruction_addresses,
+    std::map<std::uint32_t, cpu_seq_item> &imem,
+    std::map<std::uint32_t, cpu_seq_item> &dmem);
 
 void make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
                       std::uint8_t rs2, std::uint8_t rd, std::uint32_t imm,

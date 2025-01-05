@@ -26,6 +26,7 @@ class cpu_covergroup : public covergroup {
     std::uint8_t addr4;
     std::uint8_t wdata4;
     std::uint32_t csr_src_dest;
+    std::uint32_t f12;
 
     cpu_util::Opcode opcode;
     cpu_util::F3 f3;
@@ -64,6 +65,7 @@ class cpu_covergroup : public covergroup {
         f3_u = static_cast<std::uint8_t>(f3);
         f7_u = static_cast<std::uint8_t>(f7);
         csr_src_dest = i_imm & 0xFFF;
+        f12 = i_imm & 0xFFF;
         covergroup::sample();
     }
 
@@ -232,7 +234,9 @@ class cpu_covergroup : public covergroup {
         bin<std::uint8_t>("CSRRSI",
                           static_cast<std::uint8_t>(cpu_util::F3::CSRRSI)),
         bin<std::uint8_t>("CSRRCI",
-                          static_cast<std::uint8_t>(cpu_util::F3::CSRRCI))};
+                          static_cast<std::uint8_t>(cpu_util::F3::CSRRCI)),
+        bin<std::uint8_t>("PRIV",
+                          static_cast<std::uint8_t>(cpu_util::F3::PRIV))};
 
     COVERPOINT(std::uint32_t, sys_csr_src_dest_cvp, csr_src_dest,
                opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)){
@@ -243,6 +247,15 @@ class cpu_covergroup : public covergroup {
             }
             return v;
         }())};
+
+    COVERPOINT(std::uint32_t, sys_env_f12_cvp, f12,
+               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)
+               && f3_u == static_cast<std::uint8_t>(cpu_util::F3::PRIV)
+               ){
+        bin<std::uint32_t>("ECALL",
+                          static_cast<std::uint32_t>(cpu_util::F12::ECALL)),
+        bin<std::uint32_t>("EBREAK",
+                          static_cast<std::uint32_t>(cpu_util::F12::EBREAK))};
 
     COVERPOINT(std::uint8_t, addsub_cvp, f7_u,
                (opcode == cpu_util::Opcode::RR ||

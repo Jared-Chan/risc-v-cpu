@@ -4,9 +4,6 @@
 #include "cpu_seq_item.hpp"
 #include "cpu_util.hpp"
 
-#include "uvmsc/base/uvm_object_globals.h"
-#include "uvmsc/macros/uvm_component_defines.h"
-#include "uvmsc/macros/uvm_message_defines.h"
 #include <sstream>
 #include <systemc>
 #include <uvm>

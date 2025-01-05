@@ -3,7 +3,6 @@
 
 #include "cpu_scenario_item.hpp"
 
-#include "uvmsc/base/uvm_object_globals.h"
 #include <cstddef>
 #include <systemc>
 #include <uvm>
