@@ -10,7 +10,7 @@
 ## Current status
 
 Summary
-* functional coverage: 95.43%
+* functional coverage: >95%
 * `FENCE`, `ECALL`, and `EBREAK` aren't implemented
 
 Details: [coverage results](./coverage_results.xml)
@@ -35,7 +35,7 @@ It instantiates the following interface and sets its handle into `uvm_config_db`
 ### Compile-time configurations
 
 Configurations are made in `dv/sc_main.cpp`, they're
-* base test sequence length
+* test sequence length
 * UVM verbosity
 * CRAVE config file
 * test name
@@ -64,8 +64,9 @@ CPU testbench doesn't use reference models.
 
 ### Stimulus strategy
 #### Test sequences
-The only sequence is defined in `cpu_sequence.hpp`.
-It contains a `length` member variable configured in `dv/sc_main.cpp`, and a `cpu_scenario_item`. It uses the `cpu_scenario_item` to repeatedly generate test instructions in the form of `cpu_seq_item`s, which are used as both requests and responses to the DUT.
+Sequences are defined in `cpu_seq_lib.hpp`.
+
+Each contains a `length` member variable configured in `dv/sc_main.cpp`, and a `cpu_scenario_item`. It uses the `cpu_scenario_item` to repeatedly generate test instructions in the form of `cpu_seq_item`s, which are used as both requests and responses to the DUT.
 
 #### Functional coverage
 `dv/cpu_covergroup.hpp` defines the coverpoints that cover 
@@ -117,7 +118,7 @@ Assertions aren't used.
 
 The simulator used is verilator.
 
-The build system is cmake, which verilates the RTL CPU in SystemVerilog, compiles the DV testbench in C++, and links the two with the required libraries like UVM-SystemC, CRAVE, and FC4SC. In `dv/sc_main.cpp`, `length` is set to 1000000 to get a functional coverage of 99.65%.
+The build system is cmake, which verilates the RTL CPU in SystemVerilog, compiles the DV testbench in C++, and links the two with the required libraries like UVM-SystemC, CRAVE, and FC4SC. In `dv/sc_main.cpp`, `length` is set to 100000 to get a functional coverage of >95%.
 
 ```console
 $ cd build
@@ -131,8 +132,28 @@ $ ./sim
 All instructions in the RV32I base standard and the "Zicsr" and "Zicntr" extensions should be supported.
 
 ### Tests
-Test: `base_test`
-* `dv/test.hpp` defines a `base_test` class that instantiates `cpu_sequence` which uses `cpu_scenario_item` to generate all supported instructions and expected responses.
+
+Tests are defined in `dv/test_lib.hpp`.
+
+#### `complete_test`
+* tests all supported instructions
+* instantiates `cpu_sequence` which uses `cpu_scenario_item` to generate all supported instructions and expected responses.
+
+#### `jump_branch_test`
+* tests all jump and branch instructions
+* instantiates `cpu_jump_branch_sequence` which uses `cpu_jump_branch_scenario_item` to generate `JAL`, `JALR`, and `BRANCH` instructions and expected responses.
+
+#### `load_store_test`
+* tests loading and storing
+* instantiates `cpu_load_store_sequence` which uses `cpu_load_store_scenario_item` to generate `LOAD` and `STORE` instructions and expected responses.
+
+#### `register_test`
+* tests register and immediate operations
+* instantiates `cpu_register_sequence` which uses `cpu_register_scenario_item` to generate `LUI`, `AUIPC`, `Register-Register`, and `Register-Immediate` instructions and expected responses.
+
+#### `sys_test`
+* tests system instructions
+* instantiates `cpu_sys_sequence` which uses `cpu_sys_scenario_item` to generate `SYSTEM` instructions and expected responses.
 
 ### Covergroups
 

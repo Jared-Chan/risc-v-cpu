@@ -240,22 +240,30 @@ class cpu_covergroup : public covergroup {
 
     COVERPOINT(std::uint32_t, sys_csr_src_dest_cvp, csr_src_dest,
                opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)){
-        bin_array<std::uint32_t>("csr_src_dest", [] {
-            std::vector<std::uint32_t> v;
-            for (int i = 0; i < 4096; i++) {
-                v.push_back(i);
-            }
-            return v;
-        }())};
+        bin<std::uint32_t>("0",
+                           fc4sc::interval(0, 1024 - 1)),
+        bin<std::uint32_t>("1",
+                           fc4sc::interval(1024, 2048 -1)),
+        bin<std::uint32_t>("2",
+                           fc4sc::interval(2048, 3072 - 1)),
+        bin<std::uint32_t>("3",
+                           fc4sc::interval(3072, 4096 - 1)),
+        /*bin_array<std::uint32_t>("csr_src_dest", [] {*/
+        /*    std::vector<std::uint32_t> v;*/
+        /*    for (int i = 0; i < 4096; i++) {*/
+        /*        v.push_back(i);*/
+        /*    }*/
+        /*    return v;*/
+        /*}())*/
+        };
 
     COVERPOINT(std::uint32_t, sys_env_f12_cvp, f12,
-               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)
-               && f3_u == static_cast<std::uint8_t>(cpu_util::F3::PRIV)
-               ){
+               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS) &&
+                   f3_u == static_cast<std::uint8_t>(cpu_util::F3::PRIV)){
         bin<std::uint32_t>("ECALL",
-                          static_cast<std::uint32_t>(cpu_util::F12::ECALL)),
+                           static_cast<std::uint32_t>(cpu_util::F12::ECALL)),
         bin<std::uint32_t>("EBREAK",
-                          static_cast<std::uint32_t>(cpu_util::F12::EBREAK))};
+                           static_cast<std::uint32_t>(cpu_util::F12::EBREAK))};
 
     COVERPOINT(std::uint8_t, addsub_cvp, f7_u,
                (opcode == cpu_util::Opcode::RR ||
@@ -288,11 +296,12 @@ class cpu_covergroup : public covergroup {
         cross<std::uint8_t, std::uint8_t>(this, "opcode_rd_cross", &opcode_cvp,
                                           &rd_cvp);
 
-    cross<bool, std::uint32_t, std::uint32_t, std::uint32_t, std::uint8_t,
-          std::uint8_t, std::uint8_t>
-        sl_cross = cross<bool, std::uint32_t, std::uint32_t, std::uint32_t,
-                         std::uint8_t, std::uint8_t, std::uint8_t>(
-            this, "sl_cross", &wr_cvp, &data_msb_cvp, &wdata_msb_cvp,
-            &addr_msb_cvp, &data_lsb_cvp, &wdata_lsb_cvp, &addr_lsb_cvp);
+    cross<bool, std::uint32_t, std::uint8_t> sl_data_cross =
+        cross<bool, std::uint32_t, std::uint8_t>(this, "sl_data_cross", &wr_cvp,
+                                                 &data_msb_cvp, &data_lsb_cvp);
+
+    cross<bool, std::uint32_t, std::uint8_t> sl_wdata_cross =
+        cross<bool, std::uint32_t, std::uint8_t>(
+            this, "sl_wdata_cross", &wr_cvp, &wdata_msb_cvp, &wdata_lsb_cvp);
 };
 #endif

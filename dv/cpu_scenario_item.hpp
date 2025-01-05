@@ -76,7 +76,7 @@ static std::uint8_t u8_f3_sys[6] = {
     /*static_cast<std::uint8_t>(cpu_util::F3::X),*/
 };
 
-// Transaction object used by sequences to generate cpu_seq_item
+// Object used by sequences to generate cpu_seq_item
 class cpu_scenario_item : public uvm_randomized_sequence_item {
   public:
     cpu_scenario_item(crave::crv_object_name name = "cpu_scenario_item")
@@ -595,7 +595,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             rs1_val = rs2_val;
 
         // run randomized instruction
-        std::uint32_t r_iaddr = cur_iaddr;
+        std::uint32_t test_iaddr = cur_iaddr;
         cpu_util::make_instruction(opcode, funct3, funct7,
                                    rs1,       // rs1
                                    rs2,       // rs2
@@ -628,7 +628,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         switch (opcode) {
         case (cpu_util::Opcode::JAL):
         case (cpu_util::Opcode::JALR):
-            rd_val = r_iaddr + 4;
+            rd_val = test_iaddr + 4;
             break;
         case (cpu_util::Opcode::RI):
             imm_shamt = imm & 0x1F;
@@ -731,7 +731,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             rd_val = imm & 0xFFFFF000;
             break;
         case (cpu_util::Opcode::AUIPC):
-            rd_val = r_iaddr + (imm & 0xFFFFF000);
+            rd_val = test_iaddr + (imm & 0xFFFFF000);
             break;
         case (cpu_util::Opcode::L):
             switch (funct3) {
@@ -936,6 +936,67 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 r_rs2 == rhs_->r_rs2 && r_rd == rhs_->r_rd &&
                 r_imm == rhs_->r_imm);
     }
+};
+
+class cpu_jump_branch_scenario_item : public cpu_scenario_item {
+  public:
+    cpu_jump_branch_scenario_item(
+        crave::crv_object_name name = "cpu_jump_branch_scenario_item")
+        : cpu_scenario_item(name) {}
+
+    ~cpu_jump_branch_scenario_item() {}
+
+    crave::crv_constraint c_opcode_val{
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JAL) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::B)};
+
+    UVM_OBJECT_UTILS(cpu_jump_branch_scenario_item);
+};
+
+class cpu_load_store_scenario_item : public cpu_scenario_item {
+  public:
+    cpu_load_store_scenario_item(
+        crave::crv_object_name name = "cpu_load_store_scenario_item")
+        : cpu_scenario_item(name) {}
+
+    ~cpu_load_store_scenario_item() {}
+
+    crave::crv_constraint c_opcode_val{
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::L) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S)};
+
+    UVM_OBJECT_UTILS(cpu_load_store_scenario_item);
+};
+
+class cpu_register_scenario_item : public cpu_scenario_item {
+  public:
+    cpu_register_scenario_item(
+        crave::crv_object_name name = "cpu_register_scenario_item")
+        : cpu_scenario_item(name) {}
+
+    ~cpu_register_scenario_item() {}
+
+    crave::crv_constraint c_opcode_val{
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::LUI) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::AUIPC) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RI) ||
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::RR)};
+
+    UVM_OBJECT_UTILS(cpu_register_scenario_item);
+};
+
+class cpu_sys_scenario_item : public cpu_scenario_item {
+  public:
+    cpu_sys_scenario_item(crave::crv_object_name name = "cpu_sys_scenario_item")
+        : cpu_scenario_item(name) {}
+
+    ~cpu_sys_scenario_item() {}
+
+    crave::crv_constraint c_opcode_val{
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)};
+
+    UVM_OBJECT_UTILS(cpu_sys_scenario_item);
 };
 
 #endif

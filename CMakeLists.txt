@@ -46,7 +46,7 @@ verilator_link_systemc(dut)
 # Testbench
 add_executable(sim
 dv/sc_main.cpp
-dv/test.hpp
+dv/test_lib.hpp
 dv/cpu_agent.hpp
 dv/cpu_driver.hpp
 dv/cpu_env.hpp
@@ -54,7 +54,7 @@ dv/cpu_if.hpp
 dv/cpu_monitor.hpp
 dv/cpu_scoreboard.hpp
 dv/cpu_seq_item.hpp
-dv/cpu_sequence.hpp
+dv/cpu_seq_lib.hpp
 dv/cpu_sequencer.hpp
 dv/cpu_scenario_item.hpp
 dv/cpu_util.hpp
