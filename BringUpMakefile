@@ -9,12 +9,15 @@ INCLUDE_DIR := ./rtl
 
 FILES := \
     ./rtl/bringup_top.sv\
-    ./rtl/cpu.sv
+    ./rtl/cpu.sv \
+	./rtl/dual_port_ram.sv
+
+TOP := bringup_top
 
 default:
 	@echo "-- VERILATE & BUILD --------"
-	$(VERILATOR) --binary -j 0 $(FLAGS) -y $(INCLUDE_DIR) $(FILES)
+	$(VERILATOR) --binary -j 0 $(FLAGS) -y $(INCLUDE_DIR) $(FILES) --top-module $(TOP)
 	@echo "-- RUN ---------------------"
-	obj_dir/Vtop
+	obj_dir/V$(TOP)
 	@echo "-- DONE --------------------"
 

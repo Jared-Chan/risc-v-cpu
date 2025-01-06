@@ -10,8 +10,28 @@ module bringup_top ();
   logic [31:0] addr;
   logic wr;
 
-  cpu core (.*);
-  dual_port_ram ram (.*);
+  cpu core (
+      .clk(clk),
+      .rst_n(rst_n),
+      .iaddr_o(iaddr),
+      .idata_i(idata),
+      .addr_o(addr),
+      .wdata_o(wdata),
+      .data_i(data),
+      .wr_o(wr)
+  );
+
+  dual_port_ram ram (
+      .clk(clk),
+      .rst_n(rst_n),
+      .iaddr(iaddr),
+      .idata(idata),
+      .addr(addr),
+      .wdata(wdata),
+      .data(data),
+      .wr(wr),
+      .en('1)
+  );
 
   initial begin
     clk   = '0;
