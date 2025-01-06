@@ -1,7 +1,3 @@
-`define RLEN 32
-`define XLEN 32
-`define IALIGN_B 4
-
 `define OP_LUI 7'b0110111
 `define OP_AUIPC 7'b0010111
 `define OP_JAL 7'b1101111
@@ -51,13 +47,6 @@
 `define F7_SUB 7'b0100000
 `define F7_SRL 7'b0
 `define F7_SRA 7'b0100000
-
-`define RESET_PC 32'b0
-
-`define CSR_CYCLE 12'hC00
-`define CSR_CYCLE_H 12'hC80
-`define CSR_INSTRET 12'hC01
-`define CSR_INSTRET_H 12'hC81
 
 
 //`define DEBUG

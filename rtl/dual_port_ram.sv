@@ -6,26 +6,28 @@ module dual_port_ram (
     output logic [31:0] data,
     input logic [31:0] wdata,
     input logic [31:0] addr,
-    input logic wr
+    input logic wr,
+    input logic en
 );
 
   logic [7:0] mem[1024*4];  // 4kB
-
 
   initial begin
     $readmemh("ram.mem", mem);
   end
 
   always_ff @(posedge clk) begin
-    if (wr) begin
-      mem[addr]   <= wdata[7:0];
-      mem[addr+1] <= wdata[15:8];
-      mem[addr+2] <= wdata[23:16];
-      mem[addr+3] <= wdata[31:24];
+    if (en) begin
+      if (wr) begin
+        mem[addr]   <= wdata[7:0];
+        mem[addr+1] <= wdata[15:8];
+        mem[addr+2] <= wdata[23:16];
+        mem[addr+3] <= wdata[31:24];
+      end
+      // assume aligned
+      // 'byte-addressable'
+      data <= {mem[addr+3], mem[addr+2], mem[addr+1], mem[addr]};
     end
-    // assume aligned
-    // 'byte-addressable'
-    data  <= {mem[addr+3], mem[addr+2], mem[addr+1], mem[addr]};
     idata <= {mem[iaddr+3], mem[iaddr+2], mem[iaddr+1], mem[iaddr]};
   end
 

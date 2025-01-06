@@ -1,3 +1,4 @@
+`include "config.svh"
 `include "cpu.svh"
 
 module cpu (
@@ -10,7 +11,8 @@ module cpu (
     output logic [31:0] addr_o,
     output logic [31:0] wdata_o,
     input logic [31:0] data_i,
-    output logic wr_o
+    output logic wr_o,
+    output logic data_addr_strobe_o
 
 );
 
@@ -155,6 +157,7 @@ module cpu (
       pc <= `RESET_PC;
       do_decode <= '0;
       wr_o <= '0;
+      data_addr_strobe_o <= '0;
       cycle_time <= '0;
       instret <= '0;
     end else begin
@@ -162,6 +165,7 @@ module cpu (
       pc <= pc + 4;
       do_decode <= '1;
       wr_o <= 0;
+      data_addr_strobe_o <= '0;
       cycle_time <= cycle_time + 1;
 
       unique case (state)
@@ -242,6 +246,7 @@ module cpu (
               endcase
             end
             `OP_L: begin
+              data_addr_strobe_o <= '1;
               addr_o <= x[i_rs1] + i_imm;
               ex_opcode <= opcode;
               ex_i_f3 <= i_f3;
@@ -253,6 +258,7 @@ module cpu (
               state <= WAIT_READ;
             end
             `OP_S: begin
+              data_addr_strobe_o <= '1;
               addr_o <= x[s_rs1] + s_imm;
               ex_opcode <= opcode;
               ex_s_f3 <= s_f3;
@@ -403,6 +409,7 @@ module cpu (
             endcase  // OP_L f3
           else if (ex_opcode == `OP_S) begin
             wr_o <= '1;
+            data_addr_strobe_o <= '1;
             unique case (ex_s_f3)
               `F3_SB: begin
                 wdata_o <= {data_i[31:8], x[ex_s_rs2][7:0]};
