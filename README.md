@@ -11,7 +11,7 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 ## Repository structure
 
 * `doc/`: documentation, including the technical specification and design verification document
-* `dv/`: design verification in C++
+* `dv/cpu/`: design verification in C++
     * `sc_main.cpp`: 'top level' testbench
     * `cpu_util.*`: common utility
     * other: UVM-SystemC classes

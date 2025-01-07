@@ -25,16 +25,16 @@ For detailed information on CPU design features, please see the [CPU technical s
 ![Block diagram](./cpu_tb.svg)
 
 ### Top level testbench
-Top level testbench is located at `dv/sc_main.cpp`. It instantiates the CPU DUT module `rtl/cpu.sv` that is verilated to `Vcpu.h`.
+Top level testbench is located at `dv/cpu/sc_main.cpp`. It instantiates the CPU DUT module `rtl/cpu.sv` that is verilated to `Vcpu.h`.
 It instantiates the following interface and sets its handle into `uvm_config_db`:
-* [CPU interface](../dv/cpu_if.hpp)
+* [CPU interface](../dv/cpu/cpu_if.hpp)
 
 <!--### Common DV utility components-->
 <!--No common DV utility-->
 
 ### Compile-time configurations
 
-Configurations are made in `dv/sc_main.cpp`, they're
+Configurations are made in `dv/cpu/sc_main.cpp`, they're
 * test sequence length
 * UVM verbosity
 * CRAVE config file
@@ -44,7 +44,7 @@ Configurations are made in `dv/sc_main.cpp`, they're
 Currently, the testbench doesn't support commandline arguments.
 
 ### Global types & methods
-Many common types and utility methods are declared in `dv/cpu_utility.hpp` under the namespace `cpu_util`, including
+Many common types and utility methods are declared in `dv/cpu/cpu_utility.hpp` under the namespace `cpu_util`, including
 ```cpp
 enum class Opcode {...};
 enum class F3 {...};
@@ -66,10 +66,10 @@ CPU testbench doesn't use reference models.
 #### Test sequences
 Sequences are defined in `cpu_seq_lib.hpp`.
 
-Each contains a `length` member variable configured in `dv/sc_main.cpp`, and a `cpu_scenario_item`. It uses the `cpu_scenario_item` to repeatedly generate test instructions in the form of `cpu_seq_item`s, which are used as both requests and responses to the DUT.
+Each contains a `length` member variable configured in `dv/cpu/sc_main.cpp`, and a `cpu_scenario_item`. It uses the `cpu_scenario_item` to repeatedly generate test instructions in the form of `cpu_seq_item`s, which are used as both requests and responses to the DUT.
 
 #### Functional coverage
-`dv/cpu_covergroup.hpp` defines the coverpoints that cover 
+`dv/cpu/cpu_covergroup.hpp` defines the coverpoints that cover 
 * opcodes
 * functions of opcodes
 * source and destination registers
@@ -80,7 +80,7 @@ Each contains a `length` member variable configured in `dv/sc_main.cpp`, and a `
 ### Checking strategy
 
 #### CPU scenario item
-`dv/cpu_scenario_item.hpp` defines a `uvm_randomized_sequence_item` that provides three functions for `cpu_sequence` to run tests:
+`dv/cpu/cpu_scenario_item.hpp` defines a `uvm_randomized_sequence_item` that provides three functions for `cpu_sequence` to run tests:
 * `randomize()`
     * an inherited function for randomization
 * `generate_instructions(...)`
@@ -102,10 +102,10 @@ The 6-9 generated instructions are self-contained, meaning they contain the nece
 
 Although there is an overhead in setup and result-checking, no reference models or memory models are needed.
 
-`dv/cpu_scenario_item.hpp` also contains extensive constraints, allowing for meaningful and legal operations. 
+`dv/cpu/cpu_scenario_item.hpp` also contains extensive constraints, allowing for meaningful and legal operations. 
 
 #### Scoreboard
-The `cpu_scoreboard` defined in `dv/cpu_scoreboard.hpp` is only used to check reset behavior, since most checking is done in `dv/cpu_scenario_item.hpp`.
+The `cpu_scoreboard` defined in `dv/cpu/cpu_scoreboard.hpp` is only used to check reset behavior, since most checking is done in `dv/cpu/cpu_scenario_item.hpp`.
 It contains the following analysis port
 * `cpu_item_export`
     * receives all transactions at the CPU interface
@@ -118,7 +118,7 @@ Assertions aren't used.
 
 The simulator used is verilator.
 
-The build system is cmake, which verilates the RTL CPU in SystemVerilog, compiles the DV testbench in C++, and links the two with the required libraries like UVM-SystemC, CRAVE, and FC4SC. In `dv/sc_main.cpp`, `length` is set to 100000 to get a functional coverage of >95%.
+The build system is cmake, which verilates the RTL CPU in SystemVerilog, compiles the DV testbench in C++, and links the two with the required libraries like UVM-SystemC, CRAVE, and FC4SC. In `dv/cpu/sc_main.cpp`, `length` is set to 100000 to get a functional coverage of >95%.
 
 ```console
 $ cd build
@@ -133,7 +133,7 @@ All instructions in the RV32I base standard and the "Zicsr" and "Zicntr" extensi
 
 ### Tests
 
-Tests are defined in `dv/test_lib.hpp`.
+Tests are defined in `dv/cpu/test_lib.hpp`.
 
 #### `complete_test`
 * tests all supported instructions
