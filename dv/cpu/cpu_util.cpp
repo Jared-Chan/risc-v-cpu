@@ -404,8 +404,8 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
         item.idata =
             cpu_util::make_j_type_instruction(cpu_util::Opcode::JAL, rd, imm);
 
-        next_iaddr = imm & 0x001FFFFE |
-                     (((imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20));
+        next_iaddr = cur_iaddr + (imm & 0x001FFFFE |
+                     (((imm >> 20) & 0x1) == 0 ? 0 : (0xFFFFFFFF << 20)));
 
         break;
     case (cpu_util::Opcode::JALR):

@@ -449,7 +449,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         std::uint32_t cur_iaddr = 0;
         std::uint32_t next_iaddr;
         // JAL
-        cpu_util::make_instruction(cpu_util::Opcode::JAL, cpu_util::F3::X,
+        cpu_util::make_instruction(cpu_util::Opcode::JALR, cpu_util::F3::X,
                                    cpu_util::F7::X,
                                    0,         // rs1
                                    0,         // rs2
@@ -469,7 +469,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         instruction_addresses.push(cur_iaddr);
         std::ostringstream str;
         str.str(std::string());
-        str << "Made JAL, next addr: " << std::hex << cur_iaddr;
+        str << "Made JALR, next addr: " << std::hex << cur_iaddr;
         UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
 
         // setup registers

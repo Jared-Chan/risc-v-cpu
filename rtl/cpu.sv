@@ -181,7 +181,7 @@ module cpu (
             `OP_JAL: begin
               x[j_rd] <= dec_pc + 4;
               if (j_imm != dec_pc + 4) begin
-                pc <= j_imm;
+                pc <= pc + j_imm;
                 do_decode <= '0;
                 state <= WAIT_PC;
               end
@@ -490,7 +490,7 @@ module cpu (
         end
       endcase
     end
-    `PRINT_X
+    //`PRINT_X
   end
 `endif
 
