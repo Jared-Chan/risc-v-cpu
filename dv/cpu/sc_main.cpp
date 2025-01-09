@@ -18,6 +18,7 @@ int sc_main(int, char *[]) {
     dut->wr_o.bind(cif->wr);
     dut->rst_n.bind(cif->rst_n);
     dut->clk.bind(cif->clk);
+    dut->data_addr_strobe_o.bind(cif->data_addr_strobe);
 
     uvm::uvm_config_db<cpu_if *>::set(uvm::uvm_root::get(), "*", "vif", cif);
     uvm::uvm_config_db<int>::set(uvm::uvm_root::get(),

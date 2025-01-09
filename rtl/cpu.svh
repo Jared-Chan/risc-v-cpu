@@ -78,8 +78,13 @@ dec_pc, j_rd, j_imm);
   $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]); \
   $strobe("  pc=0x%0h", pc);
 `define PRINT_STEP $strobe( \
-          "time=%0t opcode=0x%0h pc=0x%0h dec_pc=0x%0h iaddr_o=0x%0h idata_i=0x%0h addr_o=0x%0h data_i=0x%0h wdata_o=0x%0h wr_o=0x%0h pstate=0x%0h do_d=0x%0h", \
+          "time=%0t opcode=0x%2h pc=0x%8h dec_pc=0x%8h iaddr_o=0x%8h idata_i=0x%8h addr_o=0x%8h data_i=0x%8h wdata_o=0x%8h wr_o=0x%1h pstate=0x%1h do_d=0x%1h", \
           $time, opcode, pc, dec_pc, iaddr_o, idata_i, addr_o, data_i, wdata_o, wr_o, state, do_decode);
+`define PRINT_JAL $display("JAL: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
+dec_pc, j_rd, j_imm);
+`define PRINT_JALR $display(\
+"JALR: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
+dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
 `else
 `define PRINT_R_TYPE
 `define PRINT_I_TYPE
@@ -91,5 +96,7 @@ dec_pc, j_rd, j_imm);
 `define PRINT_J_TYPE
 `define PRINT_X
 `define PRINT_STEP
+`define PRINT_JAL
+`define PRINT_JALR
 `endif
 

@@ -13,4 +13,7 @@
 
 `define CLK_FREQ 10000000
 
+//`define DEBUG
+`define SIM
+
 `endif

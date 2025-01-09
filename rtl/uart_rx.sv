@@ -1,18 +1,18 @@
 module uart_rx #(
     parameter int BaudRate = 9600,
     parameter bit ParityBit = 0,
-    parameter int DataBitsSizeInt = 8,
+    parameter byte DataBitsSize = 8,
     parameter bit StopBitsSize = 1,
-    parameter int BufferSizeInt = 64,
+    parameter byte BufferSize = 64,
     parameter int ClockFreqHz = 10000000
 ) (
     input logic clk,
     input logic rst_n,
     output logic ready,
     input logic rx_sig,
-    output logic [$clog2(BufferSizeInt)-1:0] next_rx_data_idx,
+    output logic [$clog2(BufferSize)-1:0] next_rx_data_idx,
 
-    ref logic [7:0] read_buffer[BufferSizeInt]
+    ref logic [7:0] read_buffer[BufferSize]
 );
   typedef enum {
     IDLE,
@@ -25,26 +25,15 @@ module uart_rx #(
 
   rx_state_e rx_state, rx_next;
 
-  localparam logic [$clog2(
-BufferSizeInt
-)-1:0] BufferSize = BufferSizeInt[$clog2(
-      BufferSizeInt
-  )-1:0];
-  localparam int SClkPeriodInt = ClockFreqHz / BaudRate;
-  localparam logic [$clog2(SClkPeriodInt):0] SClkPeriod = SClkPeriodInt[$clog2(SClkPeriodInt):0];
+  localparam int SClkPeriod = ClockFreqHz / BaudRate;
 
-  localparam logic [$clog2(
-DataBitsSizeInt
-)-1:0] DataBitsSize = DataBitsSizeInt[$clog2(
-      DataBitsSizeInt
-  )-1:0];
-  logic [$clog2(DataBitsSizeInt)-1:0] rx_data_cnt;
-  logic [$clog2(SClkPeriod):0] rx_clk_cnt;  // need at least 1.5x SClkPeriod
+  logic [7:0] rx_data_cnt;
+  logic [31:0] rx_clk_cnt;  // need at least 1.5x SClkPeriod
 
   logic parity;
 
   always_ff @(posedge clk, negedge rst_n)
-    if (!rst_n) rx_state <= XXX;
+    if (!rst_n) rx_state <= IDLE;
     else rx_state <= rx_next;
 
   always_comb begin
@@ -60,6 +49,7 @@ DataBitsSizeInt
           // avoid spurious pulses
           rx_next = IDLE;
         end
+        else rx_next = WAIT_START;
       end
       DATA:
       if (rx_data_cnt == DataBitsSize) begin
@@ -67,7 +57,9 @@ DataBitsSizeInt
         else rx_next = STOP;
       end else rx_next = DATA;
       PARITY: if (rx_clk_cnt == SClkPeriod) rx_next = STOP;
+      else rx_next = PARITY;
       STOP: if (rx_clk_cnt == SClkPeriod) rx_next = IDLE;
+      else rx_next = STOP;
       default: rx_next = XXX;
     endcase
   end
@@ -89,12 +81,16 @@ DataBitsSizeInt
         end
         WAIT_START: begin
           // Sample in the middle of a period
-          if (rx_clk_cnt == SClkPeriod + SClkPeriod / 2) rx_clk_cnt <= '0;
+          if (rx_clk_cnt == SClkPeriod + SClkPeriod / 2) begin
+            rx_clk_cnt <= '0;
+            read_buffer[next_rx_data_idx][rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
+            rx_data_cnt <= rx_data_cnt + 1'b1;
+          end
         end
         DATA: begin
           if (rx_clk_cnt == SClkPeriod) begin
             rx_clk_cnt <= '0;
-            read_buffer[next_rx_data_idx][rx_data_cnt] <= rx_sig;
+            read_buffer[next_rx_data_idx][rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
             rx_data_cnt <= rx_data_cnt + 1'b1;
           end
         end
@@ -106,7 +102,8 @@ DataBitsSizeInt
         STOP: begin
           if (rx_clk_cnt == SClkPeriod) begin
             ready <= '1;
-            if (next_rx_data_idx == BufferSize - 1'b1) next_rx_data_idx <= '0;
+            //TODO: 1'b0 should come from BufferSize width
+            if ({1'b0,next_rx_data_idx} == BufferSize - 1'b1) next_rx_data_idx <= '0;
             else next_rx_data_idx <= next_rx_data_idx + 1'b1;
           end
         end

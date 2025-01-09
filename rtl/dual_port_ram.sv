@@ -13,7 +13,7 @@ module dual_port_ram (
   logic [7:0] mem[1024*4];  // 4kB
 
   initial begin
-    $readmemh("ram.mem", mem);
+    $readmemh("helloworld.mem", mem);
   end
 
   always_ff @(posedge clk) begin

@@ -180,8 +180,8 @@ module cpu (
             end
             `OP_JAL: begin
               x[j_rd] <= dec_pc + 4;
-              if (j_imm != dec_pc + 4) begin
-                pc <= pc + j_imm;
+              if (pc + j_imm != dec_pc + 4) begin
+                pc <= dec_pc + j_imm;
                 do_decode <= '0;
                 state <= WAIT_PC;
               end
@@ -360,6 +360,12 @@ module cpu (
                   x[csr_rd] <= csr[csr_src_dest];
                   if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~csr_imm);
                 end
+`ifdef SIM
+                3'b000: begin
+                  $display("Finish with EBREAK/ECALL");
+                  $finish;
+                end
+`endif
                 default: begin
                 end
               endcase
@@ -448,9 +454,11 @@ module cpu (
               `PRINT_U_TYPE
             end
             `OP_JAL: begin
+              `PRINT_JAL
               `PRINT_J_TYPE
             end
             `OP_JALR: begin
+              `PRINT_JALR
               `PRINT_I_TYPE
             end
             `OP_B: begin
@@ -490,7 +498,7 @@ module cpu (
         end
       endcase
     end
-    //`PRINT_X
+    `PRINT_X
   end
 `endif
 
