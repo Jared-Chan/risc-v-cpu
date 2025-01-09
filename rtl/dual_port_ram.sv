@@ -10,10 +10,10 @@ module dual_port_ram (
     input logic en
 );
 
-  logic [7:0] mem[1024*4];  // 4kB
+  logic [7:0] mem[1024*32];  // 4kB
 
   initial begin
-    $readmemh("helloworld.mem", mem);
+    $readmemh("coremark.mem", mem);
   end
 
   always_ff @(posedge clk) begin

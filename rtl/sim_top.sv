@@ -1,9 +1,11 @@
+`include "config.svh"
+
 module sim_top (
     //input logic clk,
     //input logic rst_n
 );
 
-    logic clk, rst_n;
+  logic clk, rst_n;
 
   logic uart_rx, uart_tx;
   top soc (
@@ -15,24 +17,31 @@ module sim_top (
 
   assign uart_rx = '0;
 
-  mock_uart_rx mock_rx (
+  mock_uart_rx #(
+      .BaudRate(9600),
+      .ParityBit(0),
+      .DataBitsSize(8),
+      .StopBitsSize(1),
+      .BufferSize(128),
+      .ClockFreqHz(`CLK_FREQ)
+  ) mock_rx (
       .clk(clk),
       .rst_n(rst_n),
       .rx_sig(uart_tx)
   );
 
   initial begin
-      clk = 0;
-      rst_n = 1;
+    clk   = 0;
+    rst_n = 1;
+    #5;
+    rst_n = 0;
+    #5;
+    rst_n = 1;
+    #5;
+    forever begin
+      clk = ~clk;
       #5;
-      rst_n = 0;
-      #5;
-      rst_n = 1;
-      #5;
-      forever begin
-          clk = ~clk;
-          #5;
-      end
+    end
   end
   /*
   initial begin

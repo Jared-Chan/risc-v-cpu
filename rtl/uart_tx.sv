@@ -50,7 +50,8 @@ module uart_tx #(
       if (tx_clk_cnt == SClkPeriod) tx_next = STOP;
       else tx_next = PARITY;
       STOP:
-      if (tx_clk_cnt == SClkPeriod) tx_next = IDLE;
+      // After SClkPeriod, it sets tx_sig to 1, after another, move to IDLE
+      if (tx_clk_cnt == SClkPeriod * 2) tx_next = IDLE;
       else tx_next = STOP;
       default: tx_next = XXX;
     endcase
@@ -63,9 +64,7 @@ module uart_tx #(
       tx_sig <= '1;
       write_ready <= '0;
     end else begin
-      $display(
-          "\x1B[31mUART TX \033[0m state is 0x%0h write is 0x%0h write_data is 0x%0h tx_data_cnt is 0x%0h tx_clk_cnt is 0x%8h tx_sig is 0x%1h SClkPeriod is 0x%0h DataBitsSize is 0x%0h",
-          tx_state, write, write_data, tx_data_cnt, tx_clk_cnt, tx_sig, SClkPeriod, DataBitsSize);
+      //$display("\x1B[31mUART TX \033[0m state is 0x%0h write is 0x%0h write_data is 0x%0h tx_data_cnt is 0x%0h tx_clk_cnt is 0x%8h tx_sig is 0x%1h SClkPeriod is 0x%0h DataBitsSize is 0x%0h",tx_state, write, write_data, tx_data_cnt, tx_clk_cnt, tx_sig, SClkPeriod, DataBitsSize);
       tx_clk_cnt  <= tx_clk_cnt + 1'b1;
       write_ready <= '0;
       case (tx_state)
@@ -82,6 +81,7 @@ module uart_tx #(
             tx_sig <= write_data[tx_data_cnt[$clog2(DataBitsSize)-1:0]];
             tx_data_cnt <= tx_data_cnt + 1'b1;
             tx_clk_cnt <= '0;
+      //$display("\x1B[32mUART TX \033[0m sent one bit");
           end
         end
         PARITY:
@@ -91,7 +91,9 @@ module uart_tx #(
         end
         STOP: begin
           if (tx_clk_cnt == SClkPeriod) begin
+            tx_data_cnt <= '0;
             tx_sig <= '1;
+      //$display("\x1B[31mUART TX \033[0m transmit finished: write data: 0x%2h", write_data);
           end
         end
         default: ;

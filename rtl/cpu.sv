@@ -128,6 +128,7 @@ module cpu (
       };
       {csr_rs1, csr_f3, csr_rd} <= {idata_i[19:15], idata_i[14:12], idata_i[11:7]};
       csr_imm <= {27'b0, idata_i[19:15]};
+      csr_src_dest <= idata_i[31:20];
     end
   end
   /* End Decode */

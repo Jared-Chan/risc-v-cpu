@@ -102,6 +102,7 @@ module uart_rx #(
         STOP: begin
           if (rx_clk_cnt == SClkPeriod) begin
             ready <= '1;
+            rx_data_cnt <= '0;
             //TODO: 1'b0 should come from BufferSize width
             if ({1'b0,next_rx_data_idx} == BufferSize - 1'b1) next_rx_data_idx <= '0;
             else next_rx_data_idx <= next_rx_data_idx + 1'b1;
