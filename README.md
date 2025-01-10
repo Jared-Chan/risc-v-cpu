@@ -8,7 +8,7 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 
 [Design verification document](./doc/dv_doc.md)
 
-Other than DV for verifcation, applications have been successfully run on the CPU, with results printed through UART in simulation.
+Other than using UVM for verifcation, applications have been successfully run on the CPU, with results printed through UART in simulation.
 
 ## Repository structure
 

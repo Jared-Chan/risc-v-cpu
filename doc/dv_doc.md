@@ -124,7 +124,7 @@ The build system is cmake, which verilates the RTL CPU in SystemVerilog, compile
 $ cd build
 $ cmake ..
 $ make
-$ ./sim
+$ ./cpu_sim
 ```
 
 ## Testplan
