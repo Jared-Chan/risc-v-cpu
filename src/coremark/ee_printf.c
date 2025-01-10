@@ -660,9 +660,10 @@ ee_vsprintf(char *buf, const char *fmt, va_list args)
     return str - buf;
 }
 
-void
-uart_send_char(char c)
-{
+/*uart_send_char defined in util.h*/
+/*void*/
+/*uart_send_char(char c)*/
+/*{*/
 //#error "You must implement the method uart_send_char to use this file!\n";
     /*	Output of a char to a UART usually follows the following model:
             Wait until UART is ready
@@ -677,10 +678,10 @@ uart_send_char(char c)
             Check the UART sample code on your platform or the board
        documentation.
     */
-    while(!UART_WRDY){}
-    UART_WDATA = c;
-    while(!UART_WRDY){}
-}
+/*    while(!UART_WRDY){}*/
+/*    UART_WDATA = c;*/
+/*    while(!UART_WRDY){}*/
+/*}*/
 
 int
 ee_printf(const char *fmt, ...)

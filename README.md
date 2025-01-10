@@ -8,6 +8,8 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 
 [Design verification document](./doc/dv_doc.md)
 
+Other than DV for verifcation, applications have been successfully run on the CPU, with results printed through UART in simulation.
+
 ## Repository structure
 
 * `doc/`: documentation, including the technical specification and design verification document
@@ -16,10 +18,20 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
     * `cpu_util.*`: common utility
     * other: UVM-SystemC classes
 * `rtl/`: design in SystemVerilog
-    * `cpu.sv`: design
+    * `cpu.sv`: CPU design
     * `cpu.svh`: definitions
+    * `config.svh`: configurations
     * `dual_port_ram.sv`: mock memory for smoke test
-    * `top.sv`: simple top for smoke test
+    * `uart*.sv`: UART modules with configurable baud rate, data bit size, stop bit, parity bit, and buffer size
+    * `mock_uart_rx.sv`: mock UART receiver for recording app output during simulation
+    * `address_decoder.sv`: decodes address to RAM or IO
+    * `top.sv`: top level module
+    * `bringup_top.sv`: simple top for smoke test
+    * `sim_top.sv`: simulation top for running applications in simulation
+* `src/`: applications
+    * `helloworld/`: simple app that prints using UART
+    * `coremark/`: CoreMark
+    * [Details](./src/README.md)
 
 ## Simulation requirements
 

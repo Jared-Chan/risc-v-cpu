@@ -10,7 +10,7 @@ CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction
 
 * 2-stage pipeline
 * 32 registers
-* 4096 control and status registers
+* up to 4096 control and status registers
 * CYCLE, TIME, and INSTRET counters
 
 <!--## Description-->
@@ -176,6 +176,14 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
       <td>out</td>
       <td>
       Active-high write-enable to data memory.
+      </td>
+    </tr>
+    <tr>
+      <td><code>data_addr_strobe_o</code></td>
+      <td>1</td>
+      <td>out</td>
+      <td>
+      Active-high address strobe
       </td>
     </tr>
   </tbody>

@@ -11,12 +11,6 @@ RISCV_GCC_OPTS ?= \
 				  -march=rv32i_zicsr \
 				  -mabi=ilp32  \
 
-				  # -nostdlib \
-				  # -nostartfiles \
-
-				  # -D__RISCV__ \
-				  # -lm \
-				  # -L/usr/local/share/gcc-riscv32-unknown-elf/lib/gcc/riscv32-unknown-elf/15.0.0/
 
 RISCV_OBJDUMP ?= \
 				 $(RISCV_PREFIX)objdump \
@@ -32,8 +26,8 @@ SRCS = ./core_main.c ./core_matrix.c ./core_list_join.c ./core_state.c ./core_ut
 HEADERS = ./coremark.h ./core_portme.h ../util.h
 INCLUDE_DIRS = -I./ -I../
 
-CC_FLAGS = -DFLAGS_STR=\""-DPERFORMANCE_RUN=1 -DITERATIONS=25 -O2"\" 
-CC_FLAGS += -DPERFORMANCE_RUN=1 -DITERATIONS=25 -O2
+CC_FLAGS = -DFLAGS_STR=\""-DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2"\" 
+CC_FLAGS += -DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2
 
 target: $(SRCS)
 	mkdir -p $(BUILD_DIR)

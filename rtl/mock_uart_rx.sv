@@ -72,11 +72,11 @@ module mock_uart_rx #(
       if (rx_clk_cnt == SClkPeriod) rx_next = STOP;
       else rx_next = PARITY;
       STOP: begin
-      rx_next = IDLE;
-      // Skip the stop bit so that data is recorded before simulation ends
-    //  if (rx_clk_cnt == SClkPeriod) rx_next = IDLE;
-     // else rx_next = STOP;
-  end
+        rx_next = IDLE;
+        // Skip the stop bit so that data is recorded before simulation ends
+        //  if (rx_clk_cnt == SClkPeriod) rx_next = IDLE;
+        // else rx_next = STOP;
+      end
       default: rx_next = XXX;
     endcase
   end
@@ -92,21 +92,21 @@ module mock_uart_rx #(
       case (rx_state)
         IDLE: begin
           if (rx_sig == 1'b0) begin
-      //$display("\x1B[32mUART RX \033[0m receiving");
+            //$display("\x1B[32mUART RX \033[0m receiving");
             ready <= '0;
             rx_clk_cnt <= '0;
           end
         end
         WAIT_START: begin
-        if (rx_sig == 1 && rx_clk_cnt < SClkPeriod / 2) begin
-      //$display("\x1B[32mUART RX \033[0m spurious!");
-        end
+          if (rx_sig == 1 && rx_clk_cnt < SClkPeriod / 2) begin
+            //$display("\x1B[32mUART RX \033[0m spurious!");
+          end
           // Sample in the middle of a period
           if (rx_clk_cnt == SClkPeriod + SClkPeriod / 2) begin
             rx_clk_cnt <= '0;
             read_buffer[rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
             rx_data_cnt <= rx_data_cnt + 1'b1;
-      //$display("\x1B[32mUART RX \033[0m wait start finished");
+            //$display("\x1B[32mUART RX \033[0m wait start finished");
           end
         end
         DATA: begin
@@ -114,7 +114,7 @@ module mock_uart_rx #(
             rx_clk_cnt <= '0;
             read_buffer[rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
             rx_data_cnt <= rx_data_cnt + 1'b1;
-      //$display("\x1B[32mUART RX \033[0m got one bit");
+            //$display("\x1B[32mUART RX \033[0m got one bit");
           end
         end
         PARITY:
@@ -123,11 +123,11 @@ module mock_uart_rx #(
           parity <= rx_sig;
         end
         STOP: begin
-      //$display("\x1B[32mUART RX \033[0m received");
-            ready <= '1;
-            rx_data_cnt <= '0;
-      // Skip the stop bit so that data is recorded before simulation ends
-            /*
+          //$display("\x1B[32mUART RX \033[0m received");
+          ready <= '1;
+          rx_data_cnt <= '0;
+          // Skip the stop bit so that data is recorded before simulation ends
+          /*
           if (rx_clk_cnt == SClkPeriod) begin
             ready <= '1;
           end

@@ -63,28 +63,8 @@ module top (
   assign uart_as = io_select ? addr_strobe : '0;
 
   logic [31:0] data_mux;
-  assign data_mux = ram_select ? ram_data_o :
-                    io_select  ? {24'b0, uart_data_o} :
-                    'Z;
+  assign data_mux = ram_select ? ram_data_o : io_select ? {24'b0, uart_data_o} : 'Z;
   assign data = data_mux;
-
-  /*
-  always_ff @(posedge clk) begin
-      if (io_select && uart_addr == 4'h4) begin
-          $display("uart_data_o before 0x%0h", uart_data_o);
-          $strobe("uart_data_o after 0x%0h", uart_data_o);
-          $display("uart_data before 0x%0h", uart_data);
-          $strobe("uart_data after 0x%0h", uart_data);
-          $display("data before 0x%0h", data);
-          $strobe("data after 0x%0h", data);
-          $display("io_select before 0x%0h", io_select);
-          $strobe("io_select after 0x%0h", io_select);
-          $display("ram_select before 0x%0h", ram_select);
-          $strobe("ram_select after 0x%0h", ram_select);
-      end
-  end
-  */
-
 
   uart #(
       .BaudRate(9600),

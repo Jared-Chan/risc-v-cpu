@@ -48,17 +48,18 @@ module uart_rx #(
         end else if (rx_sig == 1 && rx_clk_cnt < SClkPeriod / 2) begin
           // avoid spurious pulses
           rx_next = IDLE;
-        end
-        else rx_next = WAIT_START;
+        end else rx_next = WAIT_START;
       end
       DATA:
       if (rx_data_cnt == DataBitsSize) begin
         if (ParityBit) rx_next = PARITY;
         else rx_next = STOP;
       end else rx_next = DATA;
-      PARITY: if (rx_clk_cnt == SClkPeriod) rx_next = STOP;
+      PARITY:
+      if (rx_clk_cnt == SClkPeriod) rx_next = STOP;
       else rx_next = PARITY;
-      STOP: if (rx_clk_cnt == SClkPeriod) rx_next = IDLE;
+      STOP:
+      if (rx_clk_cnt == SClkPeriod) rx_next = IDLE;
       else rx_next = STOP;
       default: rx_next = XXX;
     endcase
@@ -104,7 +105,7 @@ module uart_rx #(
             ready <= '1;
             rx_data_cnt <= '0;
             //TODO: 1'b0 should come from BufferSize width
-            if ({1'b0,next_rx_data_idx} == BufferSize - 1'b1) next_rx_data_idx <= '0;
+            if ({1'b0, next_rx_data_idx} == BufferSize - 1'b1) next_rx_data_idx <= '0;
             else next_rx_data_idx <= next_rx_data_idx + 1'b1;
           end
         end

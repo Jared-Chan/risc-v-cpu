@@ -162,6 +162,22 @@ Covers
 * opcodes
 * functions of opcodes
 * source and destination registers
-* address and data ranges
+* instruction address, address and data ranges
 * data writing and reading
 * reset
+
+Cover points
+* write-enable `wr` values
+* reset `rst_n` values
+* 3 most-significant bits (MSB) of `data`, `wdata`, `iaddr`, and `addr`
+* 4 least-significant bits (LSB) of `data`, `wdata`, `iaddr`, and `addr`
+* opcode values
+* depending on the opcode, 3-bit function values
+* depending on the opcode, 7-bit function values
+* 2 most-significant bits of CSR source/destination
+* `SYSTEM` environment functions
+* `rs1`, `rs2`, `rd` values
+* `rs1` crossed with opcode
+* `rs2` crossed with opcode
+* `rsd` crossed with opcode
+* `wr` crossed with MSB and LSB of `data` and `wdata`

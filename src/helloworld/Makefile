@@ -21,18 +21,19 @@ LINKER_SCRIPT ?= link.ld
 
 BUILD_DIR ?= ./build
 
+INCLUDE_DIRS ?= ../
+
 
 target: helloworld.c
 	mkdir -p $(BUILD_DIR)
-	$(RISCV_GCC) helloworld.c boot.s $(RISCV_GCC_OPTS) -T$(LINKER_SCRIPT) -o $(BUILD_DIR)/helloworld.o
+	$(RISCV_GCC) helloworld.c boot.s $(RISCV_GCC_OPTS) -I$(INCLUDE_DIRS) -T$(LINKER_SCRIPT) -o $(BUILD_DIR)/helloworld.o
 	$(RISCV_OBJDUMP) $(BUILD_DIR)/helloworld.o > $(BUILD_DIR)/helloworld.dump
 	$(RISCV_PREFIX)objcopy -O binary $(BUILD_DIR)/helloworld.o $(BUILD_DIR)/helloworld.copy
 	hexdump -v -e '1/1 "%02x\n"' $(BUILD_DIR)/helloworld.copy > $(BUILD_DIR)/helloworld.mem
 	hexdump -v -e '1/4 "%08x\n"' $(BUILD_DIR)/helloworld.copy > $(BUILD_DIR)/helloworld.memx4
-	cp $(BUILD_DIR)/helloworld.mem ../
+	cp $(BUILD_DIR)/helloworld.mem ../../
 	
 all: target
 
-
 clean:
-	rm helloworld.o helloworld.dump
+	rm $(BUILD_DIR)/*
