@@ -18,7 +18,7 @@ module sim_top (
   assign uart_rx = '0;
 
   mock_uart_rx #(
-      .BaudRate(9600),
+      .BaudRate(`UART_BAUD_RATE),
       .ParityBit(0),
       .DataBitsSize(8),
       .StopBitsSize(1),

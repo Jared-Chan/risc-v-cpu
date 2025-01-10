@@ -13,13 +13,15 @@
 
 `define CLK_FREQ 10000000
 
+`define UART_BAUD_RATE 115200
+
 //`define DEBUG
-`define SIM
+//`define VSIM
 
-`define MEM_INIT_FILE "coremark.mem"
-`define MEM_LEN_KB 32
+//`define MEM_INIT_FILE "coremark.mem"
+//`define MEM_LEN_KB 32
 
-//`define MEM_INIT_FILE "helloworld.mem"
-//`define MEM_LEN_KB 4
+`define MEM_INIT_FILE "helloworld.mem"
+`define MEM_LEN_KB 4
 
 `endif

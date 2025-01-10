@@ -67,7 +67,7 @@ module top (
   assign data = data_mux;
 
   uart #(
-      .BaudRate(9600),
+      .BaudRate(`UART_BAUD_RATE),
       .ParityBit(0),
       .DataBitsSize(8),
       .StopBitsSize(1),

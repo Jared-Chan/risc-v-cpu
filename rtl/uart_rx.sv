@@ -1,9 +1,9 @@
 module uart_rx #(
-    parameter int BaudRate = 9600,
+    parameter int BaudRate = 115200,
     parameter bit ParityBit = 0,
     parameter byte DataBitsSize = 8,
     parameter bit StopBitsSize = 1,
-    parameter byte BufferSize = 64,
+    parameter byte BufferSize = 128,
     parameter int ClockFreqHz = 10000000
 ) (
     input logic clk,

@@ -361,7 +361,7 @@ module cpu (
                   x[csr_rd] <= csr[csr_src_dest];
                   if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~csr_imm);
                 end
-`ifdef SIM
+`ifdef VSIM
                 3'b000: begin
                   $display("Finish with EBREAK/ECALL");
                   $finish;

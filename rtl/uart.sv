@@ -1,5 +1,5 @@
 module uart #(
-    parameter int BaudRate = 9600,
+    parameter int BaudRate = 115200,
     parameter bit ParityBit = 0,
     parameter byte DataBitsSize = 8,
     parameter int StopBitsSize = 1,

@@ -8,7 +8,7 @@ Prints `Hello world!` over UART.
 
 Modify `rtl/config.svh` such that these are defined
 ```verilog
-`define SIM
+`define VSIM
 `define MEM_INIT_FILE "helloworld.mem"
 `define MEM_LEN_KB 4
 ```
@@ -29,7 +29,7 @@ Runs [CoreMark](https://github.com/eembc/coremark/tree/main).
 
 Modify `rtl/config.svh` such that these are defined
 ```verilog
-`define SIM
+`define VSIM
 `define MEM_INIT_FILE "coremark.mem"
 `define MEM_LEN_KB 32
 ```
