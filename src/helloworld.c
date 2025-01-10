@@ -1,30 +1,19 @@
-#define UART_BASE 0xF0000000
-#define UART_RDY 0x0
-#define UART_RDATA 0x1
-#define UART_WRITE 0x2
-#define UART_WDATA 0x3
-#define UART_WRDY 0x4
+#include "util.h"
 
-volatile unsigned char *uart_ready = (unsigned char *)(UART_BASE + UART_RDY);
-volatile unsigned char *uart_rdata = (unsigned char *)(UART_BASE + UART_RDATA);
-volatile unsigned char *uart_write = (unsigned char *)(UART_BASE + UART_WRITE);
-volatile unsigned char *uart_wdata = (unsigned char *)(UART_BASE + UART_WDATA);
-volatile unsigned char *uart_wready = (unsigned char *)(UART_BASE + UART_WRDY);
+void uart_send_char(char c);
 
 int main(void) {
-    /*char urdy = *uart_ready & 0xF;*/
-    /*char rdata = *uart_rdata & 0xF;*/
-    unsigned char u_wrdy;
-    do {
-        u_wrdy = *uart_wready & 0x1;
-    } while (!u_wrdy);
-    *uart_wdata = 'A';
-    *uart_write = 1;
-    do {
-        u_wrdy = *uart_wready & 0x1;
-    } while (!u_wrdy);
-    /*__asm__(*/
-    /*        "ebreak;"*/
-    /*       );*/
+    uart_send_char('H');
+    uart_send_char('e');
+    uart_send_char('l');
+    uart_send_char('l');
+    uart_send_char('o');
+    uart_send_char(' ');
+    uart_send_char('w');
+    uart_send_char('o');
+    uart_send_char('r');
+    uart_send_char('l');
+    uart_send_char('d');
+    uart_send_char('!');
     return 0;
 }

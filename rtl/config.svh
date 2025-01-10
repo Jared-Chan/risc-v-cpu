@@ -16,4 +16,10 @@
 //`define DEBUG
 `define SIM
 
+//`define MEM_INIT_FILE "coremark.mem"
+//`define MEM_LEN_KB 32
+
+`define MEM_INIT_FILE "helloworld.mem"
+`define MEM_LEN_KB 4
+
 `endif

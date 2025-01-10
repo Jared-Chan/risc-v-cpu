@@ -21,7 +21,7 @@ module uart #(
   // addr : bit [7:0]
   // 0x0 : 7'b0, ready (read-only)
   // 0x1 : next received data (read-only)
-  // 0x2 : 7'bX, write (write-only)
+  // 0x2 : 7'bX, write (write-only) (for repeated writes)
   // 0x3 : data to transmit (write-only)
   // 0x4 : 7'b0, write ready (read-only)
 

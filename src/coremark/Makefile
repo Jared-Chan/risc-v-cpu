@@ -32,8 +32,8 @@ SRCS = ./core_main.c ./core_matrix.c ./core_list_join.c ./core_state.c ./core_ut
 HEADERS = ./coremark.h ./core_portme.h ../util.h
 INCLUDE_DIRS = -I./ -I../
 
-CC_FLAGS = -DFLAGS_STR=\""-DPERFORMANCE_RUN=1 -DITERATIONS=25"\" 
-CC_FLAGS += -DPERFORMANCE_RUN=1 -DITERATIONS=25
+CC_FLAGS = -DFLAGS_STR=\""-DPERFORMANCE_RUN=1 -DITERATIONS=25 -O2"\" 
+CC_FLAGS += -DPERFORMANCE_RUN=1 -DITERATIONS=25 -O2
 
 target: $(SRCS)
 	mkdir -p $(BUILD_DIR)

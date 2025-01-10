@@ -1,3 +1,5 @@
+`include "config.svh"
+
 module dual_port_ram (
     input logic clk,
     input logic rst_n,
@@ -10,10 +12,10 @@ module dual_port_ram (
     input logic en
 );
 
-  logic [7:0] mem[1024*32];  // 4kB
+  logic [7:0] mem[1024*`MEM_LEN_KB];
 
   initial begin
-    $readmemh("coremark.mem", mem);
+    $readmemh(`MEM_INIT_FILE, mem);
   end
 
   always_ff @(posedge clk) begin
