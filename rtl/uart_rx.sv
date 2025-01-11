@@ -12,7 +12,7 @@ module uart_rx #(
     input logic rx_sig,
     output logic [$clog2(BufferSize)-1:0] next_rx_data_idx,
 
-    ref logic [7:0] read_buffer[BufferSize]
+    output logic [7:0] read_buffer[BufferSize]
 );
   typedef enum {
     IDLE,

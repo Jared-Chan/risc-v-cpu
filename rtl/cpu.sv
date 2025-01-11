@@ -27,13 +27,13 @@ module cpu (
 
   // Cycle and Time counter
   logic [63:0] cycle_time;
-  assign csr[`CSR_CYCLE]   = cycle_time[31:0];
-  assign csr[`CSR_CYCLE_H] = cycle_time[63:32];
-
   // Instructions retired
   logic [63:0] instret;
-  assign csr[`CSR_INSTRET]   = instret[31:0];
-  assign csr[`CSR_INSTRET_H] = instret[63:32];
+  // assign csr[`CSR_CYCLE]   = cycle_time[31:0];
+  // assign csr[`CSR_CYCLE_H] = cycle_time[63:32];
+
+  // assign csr[`CSR_INSTRET]   = instret[31:0];
+  // assign csr[`CSR_INSTRET_H] = instret[63:32];
 
 
   /* Decode */
@@ -437,6 +437,10 @@ module cpu (
       endcase  // state
     end
     x[0] <= '0;  // hardwire to 0
+  csr[`CSR_CYCLE]   <= cycle_time[31:0];
+  csr[`CSR_CYCLE_H] <= cycle_time[63:32];
+  csr[`CSR_INSTRET]   <= instret[31:0];
+  csr[`CSR_INSTRET_H] <= instret[63:32];
   end
 
 
