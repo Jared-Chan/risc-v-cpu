@@ -21,7 +21,7 @@ LINKER_SCRIPT ?= coremark.ld
 
 BUILD_DIR ?= ./build
 
-SRCS = ./core_main.c ./core_matrix.c ./core_list_join.c ./core_state.c ./core_util.c core_portme.c ./ee_printf.c ./boot.s
+SRCS = ./core_main.c ./core_matrix.c ./core_list_join.c ./core_state.c ./core_util.c core_portme.c ./ee_printf.c ./boot.s ../util.c
 
 HEADERS = ./coremark.h ./core_portme.h ../util.h
 INCLUDE_DIRS = -I./ -I../

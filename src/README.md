@@ -2,6 +2,37 @@
 
 * `util.h`: utilities for sending a character over UART and reading CSRs
 
+## Shell
+
+A simple shell that displays the cycle count or the number of retired instructions.
+
+Modify `rtl/config.svh` such that these are defined
+```verilog
+`define VSIM
+`define MEM_INIT_FILE "shell.mem"
+`define MEM_LEN_KB 4
+```
+
+Running in simulation
+```sh
+cd src/shell
+make
+cd ../..
+make -f SimMakefile
+```
+
+`sim/uart_terminal` can be used to interact with the system through UART. Details in [sim/README.md](../sim/README.md).
+
+Example output
+```sh
+Starting
+> c
+Cycles: 36000948
+> i
+Instructions retired: 26669295
+>
+```
+
 ## Helloworld
 
 Prints `Hello world!` over UART.

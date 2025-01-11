@@ -15,7 +15,17 @@ module sim_top (
       .uart_tx(uart_tx)
   );
 
-  assign uart_rx = '0;
+  mock_uart_tx #(
+      .BaudRate(`UART_BAUD_RATE),
+      .ParityBit(0),
+      .DataBitsSize(8),
+      .StopBitsSize(1),
+      .ClockFreqHz(`CLK_FREQ)
+  ) mock_tx (
+      .clk(clk),
+      .rst_n(rst_n),
+      .tx_sig(uart_rx)
+  );
 
   mock_uart_rx #(
       .BaudRate(`UART_BAUD_RATE),

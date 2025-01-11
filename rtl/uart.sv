@@ -30,6 +30,12 @@ module uart #(
   logic [$clog2(BufferSize)-1:0] next_rx_data_idx, cur_read_data_idx;
   logic ready, write, write_ready;
 
+  logic [31:0] timer = '0;
+  always @(posedge clk, negedge rst_n)
+    if (!rst_n) timer <= '0;
+    else timer <= timer + 1;
+
+
   always @(posedge clk, negedge rst_n) begin
     if (!rst_n) begin
       data <= '0;
@@ -39,12 +45,14 @@ module uart #(
       write <= '0;
       case (addr)
         4'h0: begin
-          data[0] <= ready;
+          if (cur_read_data_idx == next_rx_data_idx) data[0] <= 1'b0;
+          else data[0] <= ready;
         end
         4'h1: begin
           data <= read_buffer[cur_read_data_idx];
           if (cur_read_data_idx != next_rx_data_idx) begin
-            cur_read_data_idx <= cur_read_data_idx + 1;
+            if ({1'b0, cur_read_data_idx} == BufferSize - 1'b1) cur_read_data_idx <= '0;
+            else cur_read_data_idx <= cur_read_data_idx + 1;
           end
         end
         4'h2: begin

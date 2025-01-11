@@ -8,7 +8,7 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 
 [Design verification document](./doc/dv_doc.md)
 
-Other than using UVM for verifcation, applications have been successfully run on the CPU, with results printed through UART in simulation.
+Applications have been successfully run on the CPU in simulation with an emulated UART interface.
 
 ## Repository structure
 
@@ -31,7 +31,12 @@ Other than using UVM for verifcation, applications have been successfully run on
 * `src/`: applications
     * `helloworld/`: simple app that prints using UART
     * `coremark/`: CoreMark
+    * `shell/`: simple interactive shell
+    * `util.h`, `util.c`: utilities for UART control and CSR reading
     * [Details](./src/README.md)
+* `sim/`: simulation tools
+    * `uart_terminal.cpp`: used with `sim_top` to emulate a UART interface to interact with a simulated system
+    * [Details](./sim/README.md)
 
 ## Simulation requirements
 

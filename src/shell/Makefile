@@ -11,8 +11,6 @@ RISCV_GCC_OPTS ?= \
 				  -march=rv32i_zicsr \
 				  -mabi=ilp32
 
-				  # -nostdlib \
-
 RISCV_OBJDUMP ?= \
 				 $(RISCV_PREFIX)objdump \
 				 --disassemble-all \
@@ -24,9 +22,9 @@ BUILD_DIR ?= ./build
 
 INCLUDE_DIRS ?= ../
 
-SRCS ?= helloworld.c boot.s ../util.c
+SRCS ?= shell.c boot.s ../util.c
 
-TARGET ?= helloworld
+TARGET ?= shell
 
 target: $(SRCS)
 	mkdir -p $(BUILD_DIR)

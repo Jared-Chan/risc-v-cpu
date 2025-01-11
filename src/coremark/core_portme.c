@@ -18,6 +18,7 @@ Original Author: Shay Gal-on
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "coremark.h"
 #include "core_portme.h"
 #include "util.h"
@@ -40,7 +41,7 @@ volatile ee_s32 seed3_volatile = 0x8;
 volatile ee_s32 seed4_volatile = ITERATIONS;
 volatile ee_s32 seed5_volatile = 0;
 
-#define CORETIMETYPE               unsigned long
+#define CORETIMETYPE               int64_t
 
 /* Porting : Timing functions
         How to capture time and convert to seconds must be ported to whatever is
@@ -55,7 +56,7 @@ CORETIMETYPE barebones_clock() {
     unsigned long upper;
     asm("csrr %0, %1" : "=r"(lower) : "i"(0xC00));
     asm("csrr %0, %1" : "=r"(upper) : "i"(0xC80));
-    return (upper << 32) | lower;
+    return ((int64_t)upper << 32) | lower;
 }
 /* Define : TIMER_RES_DIVIDER
         Divider to trade off timer resolution and total time that can be

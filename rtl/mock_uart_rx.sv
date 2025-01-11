@@ -28,8 +28,7 @@ module mock_uart_rx #(
   string str;
   initial begin
     fd = $fopen("mock_uart_output.txt", "a");
-    $fdisplay(fd, "Mock UART receiver started");
-    $fflush(fd);
+    $display("Mock UART receiver started");
     forever begin
       @(posedge ready);
       $sformat(str, "%c", read_buffer);

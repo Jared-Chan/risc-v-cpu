@@ -1,3 +1,4 @@
 obj_dir/
 build/
 src/build
+.cache
