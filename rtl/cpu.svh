@@ -52,25 +52,25 @@
 //`define DEBUG
 `ifdef DEBUG
 `define PRINT_R_TYPE $strobe("R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
-dec_pc, r_rs1, r_rs2, r_rd, r_f7, r_f3);
+dec_pc, rs1, rs2, rd, f7, f3);
 `define PRINT_I_TYPE $strobe(\
 "I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
-dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
+dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt);
 `define PRINT_I_TYPE_2 $strobe(\
 "I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h ex_i_rd=0x%0h",\
-dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt, ex_i_rd);
+dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt, ex_rd);
 `define PRINT_S_TYPE $strobe(\
 "S type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-dec_pc, s_rs1, s_rs2, s_f3, s_imm);
+dec_pc, rs1, rs2, f3, s_imm);
 `define PRINT_S_TYPE_2 $strobe(\
 "S type cycle 2: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h",\
-dec_pc, s_rs1, ex_s_rs2, ex_s_f3, s_imm);
+dec_pc, rs1, ex_s_rs2, ex_f3, s_imm);
 `define PRINT_B_TYPE $strobe("B type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h f3=0x%0h imm=0x%0h", \
-dec_pc, b_rs1, b_rs2, b_f3, b_imm);
+dec_pc, rs1, rs2, f3, b_imm);
 `define PRINT_U_TYPE $strobe("U type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
-dec_pc, u_rd, u_imm);
+dec_pc, rd, u_imm);
 `define PRINT_J_TYPE $strobe("J type: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
-dec_pc, j_rd, j_imm);
+dec_pc, rd, j_imm);
 `define PRINT_X \
   $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
   $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
@@ -81,10 +81,10 @@ dec_pc, j_rd, j_imm);
           "time=%0t opcode=0x%2h pc=0x%8h dec_pc=0x%8h iaddr_o=0x%8h idata_i=0x%8h addr_o=0x%8h data_i=0x%8h wdata_o=0x%8h wr_o=0x%1h pstate=0x%1h do_d=0x%1h", \
           $time, opcode, pc, dec_pc, iaddr_o, idata_i, addr_o, data_i, wdata_o, wr_o, state, do_decode);
 `define PRINT_JAL $display("JAL: dec_pc=0x%0h rd=0x%0h imm=0x%0h", \
-dec_pc, j_rd, j_imm);
+dec_pc, rd, j_imm);
 `define PRINT_JALR $display(\
 "JALR: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
-dec_pc, i_rs1, i_imm, i_rd, i_f7, i_f3, i_shamt);
+dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt);
 `else
 `define PRINT_R_TYPE
 `define PRINT_I_TYPE
