@@ -4,7 +4,7 @@
 
 ## Shell
 
-A simple shell that displays the cycle count, time, or number of retired instructions.
+A simple shell that can dump memory and display the cycle count, time, or number of retired instructions.
 
 Modify `rtl/config.svh` such that these are defined
 ```verilog

@@ -13,13 +13,13 @@
 //`define DEBUG
 `define VSIM
 
-`define MEM_INIT_FILE "coremark.mem"
-`define MEM_LEN_KB 32
+//`define MEM_INIT_FILE "coremark.mem"
+//`define MEM_LEN_KB 32
 
 //`define MEM_INIT_FILE "helloworld.mem"
 //`define MEM_LEN_KB 4
 
-//`define MEM_INIT_FILE "shell.mem"
-//`define MEM_LEN_KB 4
+`define MEM_INIT_FILE "shell.mem"
+`define MEM_LEN_KB 4
 
 `endif
