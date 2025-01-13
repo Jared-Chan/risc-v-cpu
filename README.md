@@ -1,6 +1,6 @@
 # RISC-V CPU
 
-A simple 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions.
+A simple 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicntr" extension and partially supports the "Zicsr" extension.
 
 The design is written in SystemVerilog. Design verification is done using UVM-SystemC, with Verilator as the simulator, CRAVE as the constrained randomization environment, and FC4SC as the functional coverage collector.
 
@@ -8,7 +8,7 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 
 [Design verification document](./doc/dv_doc.md)
 
-Applications have been successfully run on the CPU in simulation with an emulated UART interface.
+Applications have been successfully run on the CPU in a verilator simulation with an emulated UART interface.
 
 ## Repository structure
 
@@ -21,7 +21,7 @@ Applications have been successfully run on the CPU in simulation with an emulate
     * `cpu.sv`: CPU design
     * `cpu.svh`: definitions
     * `config.svh`: configurations
-    * `dual_port_ram.sv`: mock memory for smoke test
+    * `dual_port_ram.sv`: mock memory for simulation
     * `uart*.sv`: UART modules with configurable baud rate, data bit size, stop bit, parity bit, and buffer size
     * `mock_uart_rx.sv`: mock UART receiver for recording app output during simulation
     * `address_decoder.sv`: decodes address to RAM or IO
@@ -41,6 +41,9 @@ Applications have been successfully run on the CPU in simulation with an emulate
 ## Simulation requirements
 
 * [Verilator](https://verilator.org/guide/latest/index.html)
+
+### Additional requirements for design verification
+
 * [SystemC](https://github.com/accellera-official/systemc)
 * [UVM-SystemC](https://www.accellera.org/downloads/drafts-review): UVM-SystemC Library 1.0-beta6 is used.
 * [CRAVE](https://github.com/accellera-official/crave)

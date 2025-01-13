@@ -19,6 +19,15 @@ void send_instret() {
     putstr("\n");
 }
 
+void send_time() {
+    unsigned int lower = read_csr(CSR_TIME_L);
+    unsigned int upper = read_csr(CSR_TIME_H);
+    int64_t time_val = (int64_t)upper << 32 | lower;
+    putstr("Time (us): ");
+    putlong(time_val, 10, false);
+    putstr("\n");
+}
+
 int main(void) {
     char c;
     putstr("Starting\n");
@@ -32,6 +41,9 @@ int main(void) {
             break;
         case 'i':
             send_instret();
+            break;
+        case 't':
+            send_time();
             break;
         default:
             uart_send_char(' ');

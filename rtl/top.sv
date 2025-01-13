@@ -36,7 +36,9 @@ module top (
       .io_select_o (io_select)
   );
 
-  cpu core (
+  cpu #(
+      .ClockFreqHz(`CLK_FREQ)
+  ) core (
       .clk(clk),
       .rst_n(rst_n),
       .iaddr_o(iaddr),

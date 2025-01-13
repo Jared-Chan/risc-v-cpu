@@ -9,6 +9,12 @@ unsigned int read_csr(const unsigned int csr_num) {
     case CSR_CYCLE_L:
         asm("csrr %0, %1" : "=r"(result) : "i"(CSR_CYCLE_L));
         break;
+    case CSR_TIME_H:
+        asm("csrr %0, %1" : "=r"(result) : "i"(CSR_TIME_H));
+        break;
+    case CSR_TIME_L:
+        asm("csrr %0, %1" : "=r"(result) : "i"(CSR_TIME_L));
+        break;
     case CSR_INSTRET_H:
         asm("csrr %0, %1" : "=r"(result) : "i"(CSR_INSTRET_H));
         break;

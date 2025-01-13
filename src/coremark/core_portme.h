@@ -16,6 +16,7 @@ limitations under the License.
 Original Author: Shay Gal-on
 */
 #include <stddef.h>
+#include <stdint.h>
 
 /* Topic : Description
         This file contains configuration constants required to execute on
@@ -65,7 +66,7 @@ Original Author: Shay Gal-on
  */
 /*#include <time.h>*/
 /*typedef clock_t CORE_TICKS;*/
-typedef unsigned long CORE_TICKS;
+typedef int64_t CORE_TICKS;
 
 /* Definitions : COMPILER_VERSION, COMPILER_FLAGS, MEM_LOCATION
         Initialize these strings per platform

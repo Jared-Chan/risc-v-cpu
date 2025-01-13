@@ -4,7 +4,7 @@
 
 ## Shell
 
-A simple shell that displays the cycle count or the number of retired instructions.
+A simple shell that displays the cycle count, time, or number of retired instructions.
 
 Modify `rtl/config.svh` such that these are defined
 ```verilog
@@ -86,9 +86,9 @@ Output is printed to `mock_uart_output.txt`.
 ```
 2K performance run parameters for coremark.
 CoreMark Size    : 666
-Total ticks      : 231633648
-Total time (secs): 23
-Iterations/Sec   : 8
+Total ticks      : 22589627
+Total time (secs): 22
+Iterations/Sec   : 9
 Iterations       : 200
 Compiler version : GCC15.0.0 20241225 (experimental)
 Compiler flags   : -DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2

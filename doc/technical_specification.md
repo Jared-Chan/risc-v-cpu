@@ -4,14 +4,13 @@
 
 # Overview
 
-CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions.
+CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicntr" extension and partially supports the "Zicsr" extension.
 
 ## Features
 
 * 2-stage pipeline
 * 32 registers
-* up to 4096 control and status registers
-* CYCLE, TIME, and INSTRET counters
+* Cycle, time, and retired instruction counters
 
 <!--## Description-->
 <!---->
@@ -19,7 +18,7 @@ CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction
 <!---->
 # Instruction Set
 
-The RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions.
+The RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions. Only the `CYCLE`, `INSTRET` and `TIME` CSRs are supported.
 
 ## Processor State
 
@@ -55,7 +54,6 @@ CPU has one 32b wide program counter. CPU assumes `IALIGN=32`.
 
 Control and Status Registers (CSRs) are 32b wide registers for special purposes.
 The access to CSRs are defined in line with the "Zicsr" extension.
-Writing to read-only CSRs are not ignored and no errors are thrown.
 
 <table>
   <thead>
@@ -78,6 +76,14 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
     <tr>
       <td>0xC01</td>
       <td>R</td>
+      <td>TIME</td>
+      <td>
+      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds if the CPU clock frequency is greater than or equal to 1 MHz. Otherwise, The unit is 1/(clock frequency) s.
+      </td>
+    </tr>
+    <tr>
+      <td>0xC02</td>
+      <td>R</td>
       <td>INSTRET</td>
       <td>
       The lower 32 bits of the amount of instructions retired since an arbitrary start time in the past.
@@ -86,7 +92,7 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
     <tr>
       <td>0xC80</td>
       <td>R</td>
-      <td>CYCLE</td>
+      <td>CYCLE_H</td>
       <td>
       The upper 32 bits of the amount of cycles since an arbitrary start time in the past.
       </td>
@@ -94,7 +100,15 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
     <tr>
       <td>0xC81</td>
       <td>R</td>
-      <td>INSTRET</td>
+      <td>TIME_H</td>
+      <td>
+      The upper 32 bits of the time passed since an arbitrary start time in the past.
+      </td>
+    </tr>
+    <tr>
+      <td>0xC82</td>
+      <td>R</td>
+      <td>INSTRET_H</td>
       <td>
       The upper 32 bits of the amount of instructions retired since an arbitrary start time in the past.
       </td>
@@ -132,10 +146,10 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
     </tr>
     <tr>
       <td><code>iaddr_o</code></td>
-      <td>32</td>
+      <td>30</td>
       <td>out</td>
       <td>
-      Address to the instruction memory. First address after reset is <code>0</code>
+      Address to the instruction memory. First address after reset is <code>0</code>. Assumes memory is word-aligned.
       </td>
     </tr>
     <tr>
@@ -148,10 +162,10 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
     </tr>
     <tr>
       <td><code>addr_o</code></td>
-      <td>32</td>
+      <td>30</td>
       <td>out</td>
       <td>
-      Address to the data memory.
+      Address to the data memory. Assumes memory is word-aligned.
       </td>
     </tr>
     <tr>
@@ -184,6 +198,22 @@ Writing to read-only CSRs are not ignored and no errors are thrown.
       <td>out</td>
       <td>
       Active-high address strobe
+      </td>
+    </tr>
+    <tr>
+      <td><code>byte_en_o</code></td>
+      <td>4</td>
+      <td>out</td>
+      <td>
+      Active-high byte enable to data memory.
+      </td>
+    </tr>
+    <tr>
+      <td><code>ibyte_en_o</code></td>
+      <td>4</td>
+      <td>out</td>
+      <td>
+      Active-high byte enable to instruction memory.
       </td>
     </tr>
   </tbody>

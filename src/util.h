@@ -21,6 +21,8 @@
 
 #define CSR_CYCLE_L 0xC00
 #define CSR_CYCLE_H 0xC80
+#define CSR_TIME_L 0xC01
+#define CSR_TIME_H 0xC81
 #define CSR_INSTRET_L 0xC02
 #define CSR_INSTRET_H 0xC82
 

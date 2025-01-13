@@ -1,7 +1,9 @@
 `include "config.svh"
 `include "cpu.svh"
 
-module cpu (
+module cpu #(
+    parameter int ClockFreqHz = 10000000
+) (
     input logic clk,
     input logic rst_n,
 
@@ -17,6 +19,8 @@ module cpu (
     output logic [3:0] byte_en_o
 
 );
+
+  localparam int CyclesPerUS = ClockFreqHz / 1_000_000;
 
   // General-purpose registers
   logic [`XLEN-1:0] x  [`RLEN];
@@ -41,8 +45,10 @@ module cpu (
   // Control and Status Registers
   logic [`XLEN-1:0] csr[ 6];
 
-  // Cycle and Time counter
-  logic [63:0] cycle_time;
+  // Cycle and Time counters
+  logic [63:0] cycle;
+  logic [63:0] time_cnt;
+  logic [31:0] clk_cnt;
   // Instructions retired
   logic [63:0] instret;
 
@@ -154,7 +160,9 @@ module cpu (
       do_decode <= '0;
       wr_o <= '0;
       data_addr_strobe_o <= '0;
-      cycle_time <= '0;
+      cycle <= '0;
+      time_cnt <= '0;
+      clk_cnt <= '0;
       instret <= '0;
       byte_en_o <= 4'b1111;
     end else begin
@@ -163,7 +171,15 @@ module cpu (
       do_decode <= '1;
       wr_o <= 0;
       data_addr_strobe_o <= '0;
-      cycle_time <= cycle_time + 1'b1;
+      cycle <= cycle + 1'b1;
+      clk_cnt <= clk_cnt + 1'b1;
+      if (CyclesPerUS > 0 && clk_cnt == CyclesPerUS - 1) begin
+        clk_cnt <= '0;
+        time_cnt <= time_cnt + 1'b1;
+      end
+      if (CyclesPerUS == 0) begin
+        time_cnt <= time_cnt + 1'b1;
+      end
       byte_en_o <= 4'b1111;
 
       unique case (state)
@@ -515,10 +531,10 @@ module cpu (
       endcase  // state
     end
     x[0] <= '0;  // hardwire to 0
-    csr[CYCLE] <= cycle_time[31:0];
-    csr[CYCLE_H] <= cycle_time[63:32];
-    csr[TIME] <= cycle_time[31:0];
-    csr[TIME_H] <= cycle_time[63:32];
+    csr[CYCLE] <= cycle[31:0];
+    csr[CYCLE_H] <= cycle[63:32];
+    csr[TIME] <= time_cnt[31:0];
+    csr[TIME_H] <= time_cnt[63:32];
     csr[INSTRET] <= instret[31:0];
     csr[INSTRET_H] <= instret[63:32];
   end
