@@ -16,20 +16,10 @@ module cpu (
     output logic [3:0] ibyte_en_o,
     output logic [3:0] byte_en_o
 
-    // Regfile (CSR)
-    // output logic [11:0] rf_addr_o,
-    // output logic [31:0] rf_wdata_o,
-    // input logic [31:0] rf_data_i,
-    // output logic rf_wr_o,
-    // output logic data_addr_strobe_o
-
 );
 
   // General-purpose registers
   logic [`XLEN-1:0] x  [`RLEN];
-
-  // Control and Status Registers
-  logic [`XLEN-1:0] csr[ 4096];
 
   logic [`RLEN-1:0] pc;
   assign iaddr_o = pc[31:2];
@@ -37,6 +27,19 @@ module cpu (
 
   logic [31:0] full_addr_o;
   assign addr_o = full_addr_o[31:2];
+
+  typedef enum {
+      CYCLE,
+      CYCLE_H,
+      TIME,
+      TIME_H,
+      INSTRET,
+      INSTRET_H,
+      XSUPPORT // unsupported CSR
+  } csr_e;
+
+  // Control and Status Registers
+  logic [`XLEN-1:0] csr[ 6];
 
   // Cycle and Time counter
   logic [63:0] cycle_time;
@@ -81,6 +84,8 @@ module cpu (
   logic [31:0] csr_imm;
   assign csr_imm = {27'b0, rs1};
   logic [11:0] csr_src_dest;
+  csr_e csr_idx;
+  logic csr_read_only;
 
 
   logic [31:0] dec_pc;  // pc of decoded instruction
@@ -110,6 +115,16 @@ module cpu (
       };
 
       csr_src_dest <= idata_i[31:20];
+      case (idata_i[31:20])
+          `CSR_CYCLE: csr_idx <= CYCLE;
+          `CSR_CYCLE_H: csr_idx <= CYCLE_H;
+          `CSR_TIME: csr_idx <= TIME;
+          `CSR_TIME_H: csr_idx <= TIME_H;
+          `CSR_INSTRET: csr_idx <= INSTRET;
+          `CSR_INSTRET_H: csr_idx <= INSTRET_H;
+          default: csr_idx <= XSUPPORT;
+      endcase
+      csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
     end
   end
   /* End Decode */
@@ -362,30 +377,31 @@ module cpu (
             `OP_F: begin
             end
             `OP_SYS: begin
+                if (csr_idx == XSUPPORT) assert(0 && |"Accessing unsupported CSR");
               unique case (f3)
                 `F3_CSRRW: begin
-                  csr[csr_src_dest] <= x[rs1];
-                  if (rd != 0) x[rd] <= csr[csr_src_dest];
+                  if (!csr_read_only) csr[csr_idx] <= x[rs1];
+                  if (rd != 0) x[rd] <= csr[csr_idx];
                 end
                 `F3_CSRRS: begin
-                  x[rd] <= csr[csr_src_dest];
-                  if (rs1 != 0) csr[csr_src_dest] <= csr[csr_src_dest] | x[rs1];
+                  x[rd] <= csr[csr_idx];
+                  if (rs1 != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1];
                 end
                 `F3_CSRRC: begin
-                  x[rd] <= csr[csr_src_dest];
-                  if (rs1 != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~x[rs1]);
+                  x[rd] <= csr[csr_idx];
+                  if (rs1 != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~x[rs1]);
                 end
                 `F3_CSRRWI: begin
-                  csr[csr_src_dest] <= csr_imm;
-                  if (rd != 0) x[rd] <= csr[csr_src_dest];
+                  if (!csr_read_only) csr[csr_idx] <= csr_imm;
+                  if (rd != 0) x[rd] <= csr[csr_idx];
                 end
                 `F3_CSRRSI: begin
-                  x[rd] <= csr[csr_src_dest];
-                  if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] | csr_imm;
+                  x[rd] <= csr[csr_idx];
+                  if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | csr_imm;
                 end
                 `F3_CSRRCI: begin
-                  x[rd] <= csr[csr_src_dest];
-                  if (csr_imm != 0) csr[csr_src_dest] <= csr[csr_src_dest] & (~csr_imm);
+                  x[rd] <= csr[csr_idx];
+                  if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
                 end
 `ifdef VSIM
                 3'b000: begin
@@ -499,10 +515,12 @@ module cpu (
       endcase  // state
     end
     x[0] <= '0;  // hardwire to 0
-    csr[`CSR_CYCLE] <= cycle_time[31:0];
-    csr[`CSR_CYCLE_H] <= cycle_time[63:32];
-    csr[`CSR_INSTRET] <= instret[31:0];
-    csr[`CSR_INSTRET_H] <= instret[63:32];
+    csr[CYCLE] <= cycle_time[31:0];
+    csr[CYCLE_H] <= cycle_time[63:32];
+    csr[TIME] <= cycle_time[31:0];
+    csr[TIME_H] <= cycle_time[63:32];
+    csr[INSTRET] <= instret[31:0];
+    csr[INSTRET_H] <= instret[63:32];
   end
 
 

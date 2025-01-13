@@ -21,7 +21,7 @@ enum class Opcode {
     RI = 0b0010011,    // 13
     RR = 0b0110011,    // 33
     F = 0b0001111,     // 0f
-    SYS = 0b1110011,   // c3
+    SYS = 0b1110011,   // 73
 };
 
 enum class F3 {

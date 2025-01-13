@@ -238,25 +238,6 @@ class cpu_covergroup : public covergroup {
         bin<std::uint8_t>("PRIV",
                           static_cast<std::uint8_t>(cpu_util::F3::PRIV))};
 
-    COVERPOINT(std::uint32_t, sys_csr_src_dest_cvp, csr_src_dest,
-               opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)){
-        bin<std::uint32_t>("0",
-                           fc4sc::interval(0, 1024 - 1)),
-        bin<std::uint32_t>("1",
-                           fc4sc::interval(1024, 2048 -1)),
-        bin<std::uint32_t>("2",
-                           fc4sc::interval(2048, 3072 - 1)),
-        bin<std::uint32_t>("3",
-                           fc4sc::interval(3072, 4096 - 1)),
-        /*bin_array<std::uint32_t>("csr_src_dest", [] {*/
-        /*    std::vector<std::uint32_t> v;*/
-        /*    for (int i = 0; i < 4096; i++) {*/
-        /*        v.push_back(i);*/
-        /*    }*/
-        /*    return v;*/
-        /*}())*/
-        };
-
     COVERPOINT(std::uint32_t, sys_env_f12_cvp, f12,
                opcode_u == static_cast<std::uint8_t>(cpu_util::Opcode::SYS) &&
                    f3_u == static_cast<std::uint8_t>(cpu_util::F3::PRIV)){

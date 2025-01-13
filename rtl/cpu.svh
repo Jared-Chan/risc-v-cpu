@@ -48,10 +48,17 @@
 `define F7_SRL 7'b0
 `define F7_SRA 7'b0100000
 
+`define CSR_CYCLE 12'hC00
+`define CSR_CYCLE_H 12'hC80
+`define CSR_TIME 12'hC01
+`define CSR_TIME_H 12'hC81
+`define CSR_INSTRET 12'hC02
+`define CSR_INSTRET_H 12'hC82
 
-//`define DEBUG
+
 `ifdef DEBUG
-`define PRINT_R_TYPE $display("R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
+`define PRINT_R_TYPE $display(\
+"R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
 dec_pc, rs1, rs2, rd, f7, f3);
 `define PRINT_I_TYPE $display(\
 "I type: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \

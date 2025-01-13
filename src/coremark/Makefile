@@ -8,7 +8,7 @@ RISCV_GCC_OPTS ?= \
 				  -mcmodel=medany \
 				  -fvisibility=hidden \
 				  -ffreestanding \
-				  -march=rv32i_zicsr \
+				  -march=rv32i_zicntr \
 				  -mabi=ilp32  \
 
 
@@ -34,8 +34,7 @@ target: $(SRCS)
 	$(RISCV_GCC) $(INCLUDE_DIRS) $(SRCS) $(RISCV_GCC_OPTS) $(CC_FLAGS) -T$(LINKER_SCRIPT) -o $(BUILD_DIR)/coremark.o
 	$(RISCV_OBJDUMP) $(BUILD_DIR)/coremark.o > $(BUILD_DIR)/coremark.dump
 	$(RISCV_PREFIX)objcopy -O binary $(BUILD_DIR)/coremark.o $(BUILD_DIR)/coremark.copy
-	hexdump -v -e '1/1 "%02x\n"' $(BUILD_DIR)/coremark.copy > $(BUILD_DIR)/coremark.mem
-	hexdump -v -e '1/4 "%08x\n"' $(BUILD_DIR)/coremark.copy > $(BUILD_DIR)/coremark.memx4
+	hexdump -v -e '1/4 "%08x\n"' $(BUILD_DIR)/coremark.copy > $(BUILD_DIR)/coremark.mem
 	cp $(BUILD_DIR)/coremark.mem ../../
 	
 

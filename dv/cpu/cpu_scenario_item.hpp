@@ -226,9 +226,8 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             ((r_imm() & 0x100000) == 0x100000),
         ((r_imm() | 0xFFE00000) < 0xFFFFFFFF - (r_iaddr() + 0x20)))};
 
-    crave::crv_constraint c_sh_addr{
-        crave::if_then(
-            r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S) &&
+    crave::crv_constraint c_sh_addr{crave::if_then(
+        r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S) &&
             r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::SH),
         (((r_imm() + r_rs1_val()) % 4 != 3) &&
          ((r_imm() + r_rs2_val()) % 4 != 3)))};
@@ -245,6 +244,12 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
     /*     r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRSI) ||*/
     /*     r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::CSRRCI)) &&*/
     /*        r_rs1() == 0)};*/
+
+    crave::crv_constraint c_csr_supported{crave::if_then(
+        (r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)),
+        ((r_imm() & 0xFFF) == 0xC00 || (r_imm() & 0xFFF) == 0xC80 ||
+         (r_imm() & 0xFFF) == 0xC02 || (r_imm() & 0xFFF) == 0xC82 ||
+         (r_imm() & 0xFFF) == 0xC01 || (r_imm() & 0xFFF) == 0xC81))};
 
     // 'Fix' known randomization issue with CRAVE
     crave::crv_constraint c_not_equal_to_prev{
@@ -451,6 +456,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         // Due to mentioned randomization failure, overwrite rs1 here
         if (opcode == cpu_util::Opcode::SYS &&
             ((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+             (imm & 0xFFF) == 0xC02 || (imm & 0xFFF) == 0xC82 ||
              (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81)) {
             rs1 = 0;
             rs1_val = 0;
@@ -590,6 +596,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
         // CSR set to 0b10101 testing sets and clears
         if (opcode == cpu_util::Opcode::SYS &&
             !((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+              (imm & 0xFFF) == 0xC02 || (imm & 0xFFF) == 0xC82 ||
               (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81)) {
             cpu_util::make_instruction(cpu_util::Opcode::SYS,
                                        cpu_util::F3::CSRRWI, cpu_util::F7::X,
@@ -915,6 +922,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
 
             if ((imm & 0xFFF) == 0xC00 || (imm & 0xFFF) == 0xC80 ||
+                (imm & 0xFFF) == 0xC02 || (imm & 0xFFF) == 0xC82 ||
                 (imm & 0xFFF) == 0xC01 || (imm & 0xFFF) == 0xC81) {
                 should_check_csr_cycle_instret_store = true;
             }
