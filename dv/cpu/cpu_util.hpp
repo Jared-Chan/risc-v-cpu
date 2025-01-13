@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <sstream>
 
+#define CPU_ADDR_MASK 0x3FFFFFFF
+
 namespace cpu_util {
 
 enum class Opcode {
@@ -15,7 +17,7 @@ enum class Opcode {
     JALR = 0b1100111,  // 67
     B = 0b1100011,     // 63
     L = 0b0000011,     // 3
-    S = 0b0100011,     // 43
+    S = 0b0100011,     // 23
     RI = 0b0010011,    // 13
     RR = 0b0110011,    // 33
     F = 0b0001111,     // 0f

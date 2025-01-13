@@ -226,6 +226,13 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             ((r_imm() & 0x100000) == 0x100000),
         ((r_imm() | 0xFFE00000) < 0xFFFFFFFF - (r_iaddr() + 0x20)))};
 
+    crave::crv_constraint c_sh_addr{
+        crave::if_then(
+            r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::S) &&
+            r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::SH),
+        (((r_imm() + r_rs1_val()) % 4 != 3) &&
+         ((r_imm() + r_rs2_val()) % 4 != 3)))};
+
     // CYCLE and INSTRET registers are read-only
     // TODO fix CRAVE randomization failure with constraints r_rs1() == 0 or
     // r_rs2() == 0
@@ -319,6 +326,17 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                 }
             }
 
+            if ((last_rsp.ibyte_en & 0xF) != 0xF) {
+                error = true;
+                std::ostringstream str;
+                str << std::endl;
+                str << "\x1B[31mERROR \033[0m";
+                str << "ibyte_en not 0xF: " << std::endl;
+                str << " ibyte_en:          0x" << std::hex << last_rsp.ibyte_en
+                    << std::endl;
+                UVM_ERROR(this->get_name(), str.str());
+            }
+
         } else {
             next_item = nop;
         }
@@ -339,7 +357,8 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                         << dmem[last_rsp.addr].wdata;
                     UVM_INFO(this->get_name(), str.str(), uvm::UVM_HIGH);
 
-                } else if (last_rsp.wdata == dmem[last_rsp.addr].wdata) {
+                } else if (last_rsp.wdata == dmem[last_rsp.addr].wdata &&
+                           last_rsp.byte_en == dmem[last_rsp.addr].byte_en) {
                     // this is fine
                     checked_write = true;
                     UVM_INFO(this->get_name(), "Store wdata correct.",
@@ -350,10 +369,14 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
                     str << std::endl;
                     str << "\x1B[31mERROR \033[0m";
                     str << "Unexpected response: " << std::endl;
-                    str << " wdata:          0x" << std::hex << last_rsp.wdata
+                    str << " wdata:            0x" << std::hex << last_rsp.wdata
                         << std::endl;
-                    str << " expected wdata: 0x" << std::hex
-                        << dmem[last_rsp.addr].wdata;
+                    str << " expected wdata:   0x" << std::hex
+                        << dmem[last_rsp.addr].wdata << std::endl;
+                    str << " byte_en:          0x" << std::hex
+                        << last_rsp.byte_en << std::endl;
+                    str << " expected byte_en: 0x" << std::hex
+                        << dmem[last_rsp.addr].byte_en;
                     UVM_ERROR(this->get_name(), str.str());
                     UVM_ERROR(this->get_name(), rand_result_str.str());
                 }
@@ -595,7 +618,7 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             rs1_val = rs2_val;
 
         // run randomized instruction
-        std::uint32_t test_iaddr = cur_iaddr;
+        std::uint32_t test_iaddr = cur_iaddr << 2;
         cpu_util::make_instruction(opcode, funct3, funct7,
                                    rs1,       // rs1
                                    rs2,       // rs2
@@ -834,10 +857,10 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             // test due to a case were branch destination is the same as the
             // second or third address of the next test, and so some
             // instructions are not executed
-            imem[cur_iaddr + 4] = check_item;
-            imem[cur_iaddr + 8] = check_item;
-            instruction_addresses.push(cur_iaddr + 4);
-            instruction_addresses.push(cur_iaddr + 8);
+            imem[(cur_iaddr + 1) & CPU_ADDR_MASK] = check_item;
+            imem[(cur_iaddr + 2) & CPU_ADDR_MASK] = check_item;
+            instruction_addresses.push((cur_iaddr + 1) & CPU_ADDR_MASK);
+            instruction_addresses.push((cur_iaddr + 2) & CPU_ADDR_MASK);
             should_check_write = false;
             break;
 

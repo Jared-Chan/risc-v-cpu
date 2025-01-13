@@ -12,9 +12,11 @@ FILES := \
 
 TOP := sim_top
 
+SUPPRESS_WARNING := -Wno-WIDTHTRUNC
+
 default:
 	@echo "-- VERILATE & BUILD --------"
-	$(VERILATOR) --binary -j 0 $(FLAGS) -y $(INCLUDE_DIR) $(FILES) --top-module $(TOP)
+	$(VERILATOR) --binary -j 0 $(FLAGS) $(SUPPRESS_WARNING) -y $(INCLUDE_DIR) $(FILES) --top-module $(TOP)
 	@echo "-- RUN ---------------------"
 	obj_dir/V$(TOP)
 	@echo "-- DONE --------------------"

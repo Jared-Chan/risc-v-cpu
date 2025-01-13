@@ -15,5 +15,6 @@ int main(void) {
     uart_send_char('l');
     uart_send_char('d');
     uart_send_char('!');
+    uart_send_char('\n');
     return 0;
 }

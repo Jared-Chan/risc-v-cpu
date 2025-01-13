@@ -6,13 +6,22 @@ module cpu (
     input logic rst_n,
 
     // Memory
-    output logic [31:0] iaddr_o,
+    output logic [29:0] iaddr_o,
     input logic [31:0] idata_i,
-    output logic [31:0] addr_o,
+    output logic [29:0] addr_o,
     output logic [31:0] wdata_o,
     input logic [31:0] data_i,
     output logic wr_o,
-    output logic data_addr_strobe_o
+    output logic data_addr_strobe_o,
+    output logic [3:0] ibyte_en_o,
+    output logic [3:0] byte_en_o
+
+    // Regfile (CSR)
+    // output logic [11:0] rf_addr_o,
+    // output logic [31:0] rf_wdata_o,
+    // input logic [31:0] rf_data_i,
+    // output logic rf_wr_o,
+    // output logic data_addr_strobe_o
 
 );
 
@@ -23,7 +32,11 @@ module cpu (
   logic [`XLEN-1:0] csr[ 4096];
 
   logic [`RLEN-1:0] pc;
-  assign iaddr_o = pc;
+  assign iaddr_o = pc[31:2];
+  assign ibyte_en_o = 4'b1111;
+
+  logic [31:0] full_addr_o;
+  assign addr_o = full_addr_o[31:2];
 
   // Cycle and Time counter
   logic [63:0] cycle_time;
@@ -111,7 +124,7 @@ module cpu (
     EXECUTE,
     WAIT_PC,
     WAIT_DECODE,
-    WAIT_L_S,
+    WAIT_L,
     WAIT_READ,
     XXX
   } state_e;
@@ -128,6 +141,7 @@ module cpu (
       data_addr_strobe_o <= '0;
       cycle_time <= '0;
       instret <= '0;
+      byte_en_o <= 4'b1111;
     end else begin
 
       pc <= pc + 32'h4;
@@ -135,6 +149,7 @@ module cpu (
       wr_o <= 0;
       data_addr_strobe_o <= '0;
       cycle_time <= cycle_time + 1'b1;
+      byte_en_o <= 4'b1111;
 
       unique case (state)
         EXECUTE: begin
@@ -154,11 +169,11 @@ module cpu (
                 state <= WAIT_PC;
               end
               // else pc = pc + 4 is valid
-              // should check addr_o alignment
+              // should check addr alignment
             end
             `OP_JALR: begin
               x[rd] <= dec_pc + 4;
-              // should check addr_o alignment
+              // should check addr alignment
               if (((i_imm + x[rs1]) & 32'hFFFFFFFE) != dec_pc + 4) begin
                 pc <= (i_imm + x[rs1]) & 32'hFFFFFFFE;
                 do_decode <= '0;
@@ -215,7 +230,7 @@ module cpu (
             end
             `OP_L: begin
               data_addr_strobe_o <= '1;
-              addr_o <= x[rs1] + i_imm;
+              full_addr_o <= x[rs1] + i_imm;
               ex_opcode <= opcode;
               ex_f3 <= f3;
               ex_rd <= rd;
@@ -227,15 +242,59 @@ module cpu (
             end
             `OP_S: begin
               data_addr_strobe_o <= '1;
-              addr_o <= x[rs1] + s_imm;
-              ex_opcode <= opcode;
-              ex_f3 <= f3;
-              ex_s_rs2 <= rs2;
+              full_addr_o <= x[rs1] + s_imm;
+              wr_o <= '1;
 
-              instret <= instret;
-              pc <= pc;
-              do_decode <= '0;
-              state <= WAIT_READ;
+              unique case (f3)
+                `F3_SB: begin
+                  unique case ({(x[rs1] + s_imm)}[1:0])
+                    2'b00: begin
+                      wdata_o   <= {24'b0, x[rs2][7:0]};
+                      byte_en_o <= 4'b0001;
+                    end
+                    2'b01: begin
+                      wdata_o   <= {16'b0, x[rs2][7:0], 8'b0};
+                      byte_en_o <= 4'b0010;
+                    end
+                    2'b10: begin
+                      wdata_o   <= {8'b0, x[rs2][7:0], 16'b0};
+                      byte_en_o <= 4'b0100;
+                    end
+                    2'b11: begin
+                      wdata_o   <= {x[rs2][7:0], 24'b0};
+                      byte_en_o <= 4'b1000;
+                    end
+                    default: ;
+                  endcase
+                end
+                `F3_SH: begin
+                  unique case ({(x[rs1] + s_imm)}[1:0])
+                    2'b00: begin
+                      wdata_o   <= {16'b0, x[rs2][15:0]};
+                      byte_en_o <= 4'b0011;
+                    end
+                    2'b01: begin
+                      wdata_o   <= {8'b0, x[rs2][15:0], 8'b0};
+                      byte_en_o <= 4'b0110;
+                    end
+                    2'b10: begin
+                      wdata_o   <= {x[rs2][15:0], 16'b0};
+                      byte_en_o <= 4'b1100;
+                    end
+                    2'b11: begin
+                      assert (0 && |"Illegal SH");
+                      wdata_o   <= '0;
+                      byte_en_o <= 4'b0000;
+                    end
+                    default: ;
+                  endcase
+                end
+                `F3_SW: begin
+                  wdata_o <= x[rs2];
+                end
+                default: begin
+                end
+              endcase  // OP_S f3
             end
             `OP_RI: begin
               unique case (f3)
@@ -344,60 +403,96 @@ module cpu (
           endcase  // opcode
         end
         WAIT_PC: begin
-          //pc <= pc;
-          do_decode <= '1;
           state <= WAIT_DECODE;
         end
         WAIT_DECODE: begin
-          do_decode <= '1;
           state <= EXECUTE;
         end
         WAIT_READ: begin
           pc <= pc;
           do_decode <= '0;
-          state <= WAIT_L_S;
+          state <= WAIT_L;
         end
-        WAIT_L_S: begin
+        WAIT_L: begin
           instret <= instret + 1'b1;
-          do_decode <= '1;
           state <= EXECUTE;
-          if (ex_opcode == `OP_L)
-            unique case (ex_f3)
-              `F3_LB: begin
-                x[ex_rd] <= {{24{data_i[7]}}, data_i[7:0]};
-              end
-              `F3_LH: begin
-                x[ex_rd] <= {{16{data_i[15]}}, data_i[15:0]};
-              end
-              `F3_LW: begin
-                x[ex_rd] <= data_i;
-              end
-              `F3_LBU: begin
-                x[ex_rd] <= {{24'b0}, data_i[7:0]};
-              end
-              `F3_LHU: begin
-                x[ex_rd] <= {{16'b0}, data_i[15:0]};
-              end
-              default: begin
-              end
-            endcase  // OP_L f3
-          else if (ex_opcode == `OP_S) begin
-            wr_o <= '1;
-            data_addr_strobe_o <= '1;
-            unique case (ex_f3)
-              `F3_SB: begin
-                wdata_o <= {data_i[31:8], x[ex_s_rs2][7:0]};
-              end
-              `F3_SH: begin
-                wdata_o <= {data_i[31:16], x[ex_s_rs2][15:0]};
-              end
-              `F3_SW: begin
-                wdata_o <= x[ex_s_rs2];
-              end
-              default: begin
-              end
-            endcase  // OP_S f3
-          end
+          //if (ex_opcode == `OP_L)
+          unique case (ex_f3)
+            `F3_LB: begin
+              unique case (full_addr_o[1:0])
+                2'b00: begin
+                  x[ex_rd] <= {{24{data_i[7]}}, data_i[7:0]};
+                end
+                2'b01: begin
+                  x[ex_rd] <= {{24{data_i[15]}}, data_i[15:8]};
+                end
+                2'b10: begin
+                  x[ex_rd] <= {{24{data_i[23]}}, data_i[23:16]};
+                end
+                2'b11: begin
+                  x[ex_rd] <= {{24{data_i[31]}}, data_i[31:24]};
+                end
+                default: ;
+              endcase
+            end
+            `F3_LH: begin
+              unique case (full_addr_o[1:0])
+                2'b00: begin
+                  x[ex_rd] <= {{16{data_i[15]}}, data_i[15:0]};
+                end
+                2'b01: begin
+                  x[ex_rd] <= {{16{data_i[23]}}, data_i[23:8]};
+                end
+                2'b10: begin
+                  x[ex_rd] <= {{16{data_i[31]}}, data_i[31:16]};
+                end
+                2'b11: begin
+                  assert (0 && |"Illegal LH");
+                end
+                default: ;
+              endcase
+            end
+            `F3_LW: begin
+              x[ex_rd] <= data_i;
+            end
+            `F3_LBU: begin
+              unique case (full_addr_o[1:0])
+                2'b00: begin
+                  x[ex_rd] <= {{24'b0}, data_i[7:0]};
+                end
+                2'b01: begin
+                  x[ex_rd] <= {{24'b0}, data_i[15:8]};
+                end
+                2'b10: begin
+                  x[ex_rd] <= {{24'b0}, data_i[23:16]};
+                end
+                2'b11: begin
+                  x[ex_rd] <= {{24'b0}, data_i[31:24]};
+                end
+                default: ;
+              endcase
+            end
+            `F3_LHU: begin
+              unique case (full_addr_o[1:0])
+                2'b00: begin
+                  x[ex_rd] <= {{16'b0}, data_i[15:0]};
+                end
+                2'b01: begin
+                  x[ex_rd] <= {{16'b0}, data_i[23:8]};
+                end
+                2'b10: begin
+                  x[ex_rd] <= {{16'b0}, data_i[31:16]};
+                end
+                2'b11: begin
+                  assert (0 && |"Illegal LHU");
+                end
+                default: ;
+              endcase
+            end
+            default: begin
+            end
+          endcase  // OP_L f3
+          //end
         end
         default: begin
         end
@@ -462,9 +557,8 @@ module cpu (
         end
         WAIT_READ: begin
         end
-        WAIT_L_S: begin
-          if (ex_opcode == `OP_L) `PRINT_I_TYPE_2
-          else if (ex_opcode == `OP_S) `PRINT_S_TYPE_2
+        WAIT_L: begin
+          `PRINT_I_TYPE_2
         end
         default: begin
         end

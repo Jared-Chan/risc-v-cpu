@@ -22,6 +22,8 @@ class cpu_if : public sc_core::sc_module {
     sc_core::sc_signal<bool> wr;
     sc_core::sc_signal<std::uint32_t> wdata;
     sc_core::sc_signal<bool> data_addr_strobe;
+    sc_core::sc_signal<std::uint32_t> ibyte_en;
+    sc_core::sc_signal<std::uint32_t> byte_en;
 };
 
 #endif /* ifndef  */

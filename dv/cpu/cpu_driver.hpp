@@ -56,6 +56,8 @@ class cpu_driver : public uvm::uvm_driver<cpu_seq_item> {
         rsp.addr = vif->addr;
         rsp.wdata = vif->wdata;
         rsp.wr = vif->wr;
+        rsp.byte_en = vif->byte_en;
+        rsp.ibyte_en = vif->ibyte_en;
     }
 };
 

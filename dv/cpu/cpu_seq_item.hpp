@@ -26,6 +26,8 @@ class cpu_seq_item : public uvm::uvm_sequence_item {
     std::uint32_t addr;
     bool wr;
     std::uint32_t wdata;
+    std::uint32_t byte_en;
+    std::uint32_t ibyte_en;
 
     virtual void do_print(uvm::uvm_printer &printer) const {}
 
@@ -42,6 +44,8 @@ class cpu_seq_item : public uvm::uvm_sequence_item {
         wdata = rhs_->wdata;
         wr = rhs_->wr;
         rst_n = rhs_->rst_n;
+        byte_en = rhs_->byte_en;
+        ibyte_en = rhs_->ibyte_en;
     }
 
     virtual bool do_compare(const uvm::uvm_object *rhs) const {

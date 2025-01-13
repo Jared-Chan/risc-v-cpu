@@ -18,12 +18,12 @@ module uart #(
 );
 
   // begin: data interface to cpu
-  // addr : bit [7:0]
-  // 0x0 : 7'b0, ready (read-only)
-  // 0x1 : next received data (read-only)
-  // 0x2 : 7'bX, write (write-only) (for repeated writes)
-  // 0x3 : data to transmit (write-only)
-  // 0x4 : 7'b0, write ready (read-only)
+  // addr (addr_o of cpu) : bit [7:0]
+  // 0x0 (0x00) : 7'b0, ready (read-only)
+  // 0x1 (0x04) : next received data (read-only)
+  // 0x2 (0x08) : 7'bX, write (write-only) (for repeated writes)
+  // 0x3 (0x0C) : data to transmit (write-only)
+  // 0x4 (0x10) : 7'b0, write ready (read-only)
 
   logic [DataBitsSize - 1:0] read_buffer[BufferSize];
   logic [DataBitsSize - 1:0] write_data;

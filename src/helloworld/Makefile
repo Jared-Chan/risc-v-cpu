@@ -33,9 +33,10 @@ target: $(SRCS)
 	$(RISCV_GCC) $(SRCS) $(RISCV_GCC_OPTS) -I$(INCLUDE_DIRS) -T$(LINKER_SCRIPT) -o $(BUILD_DIR)/$(TARGET).o
 	$(RISCV_OBJDUMP) $(BUILD_DIR)/$(TARGET).o > $(BUILD_DIR)/$(TARGET).dump
 	$(RISCV_PREFIX)objcopy -O binary $(BUILD_DIR)/$(TARGET).o $(BUILD_DIR)/$(TARGET).copy
-	hexdump -v -e '1/1 "%02x\n"' $(BUILD_DIR)/$(TARGET).copy > $(BUILD_DIR)/$(TARGET).mem
-	hexdump -v -e '1/4 "%08x\n"' $(BUILD_DIR)/$(TARGET).copy > $(BUILD_DIR)/$(TARGET).memx4
+	hexdump -v -e '1/4 "%08x\n"' $(BUILD_DIR)/$(TARGET).copy > $(BUILD_DIR)/$(TARGET).mem
 	cp $(BUILD_DIR)/$(TARGET).mem ../../
+
+	# hexdump -v -e '1/1 "%02x\n"' $(BUILD_DIR)/$(TARGET).copy > $(BUILD_DIR)/$(TARGET).mem
 	
 all: target
 

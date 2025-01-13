@@ -9,14 +9,24 @@ module top (
 );
 
   logic [31:0] idata;
-  logic [31:0] iaddr;
+  logic [29:0] iaddr;
   logic [31:0] wdata;
-  logic [31:0] addr;
+  logic [29:0] addr;
   logic wr, addr_strobe;
+  logic [3:0] byte_en;
+  logic [3:0] ibyte_en;
 
   wire [31:0] data;
 
   logic ram_select, io_select;
+
+  /*
+  always_ff @(posedge clk) begin
+      if ( addr[29:26] == 4'hF && wr == 1'b1) begin
+          $display("ram sel %b io sel %b", ram_select, io_select);
+      end
+  end
+  */
 
   address_decoder addr_dec (
       .clk(clk),
@@ -35,10 +45,14 @@ module top (
       .wdata_o(wdata),
       .data_i(data),
       .wr_o(wr),
-      .data_addr_strobe_o(addr_strobe)
+      .data_addr_strobe_o(addr_strobe),
+      .byte_en_o(byte_en),
+      .ibyte_en_o(ibyte_en)
   );
 
   logic [31:0] ram_data_o;
+  logic ram_wr;
+  assign ram_wr = ram_select ? wr : '0;
 
   dual_port_ram ram (
       .clk(clk),
@@ -48,8 +62,9 @@ module top (
       .addr(addr),
       .wdata(wdata),
       .data(ram_data_o),
-      .wr(wr),
-      .en(ram_select)
+      .wr(ram_wr),
+      .byte_en(byte_en),
+      .ibyte_en(ibyte_en)
   );
 
   logic [3:0] uart_addr;
