@@ -76,6 +76,8 @@ module cpu #(
 
   // S-type
   logic [31:0] s_imm;
+  logic [31:0] s_addr;
+  assign s_addr = x[rs1] + s_imm;
 
   // B-type (~S)
   logic [31:0] b_imm;
@@ -194,22 +196,18 @@ module cpu #(
             end
             `OP_JAL: begin
               x[rd] <= dec_pc + 4;
-              if (j_imm != 4) begin
-                pc <= dec_pc + j_imm;
-                do_decode <= '0;
-                state <= WAIT_PC;
-              end
+              pc <= dec_pc + j_imm;
+              do_decode <= '0;
+              state <= WAIT_PC;
               // else pc = pc + 4 is valid
               // should check addr alignment
             end
             `OP_JALR: begin
               x[rd] <= dec_pc + 4;
               // should check addr alignment
-              if (((i_imm + x[rs1]) & 32'hFFFFFFFE) != dec_pc + 4) begin
-                pc <= (i_imm + x[rs1]) & 32'hFFFFFFFE;
-                do_decode <= '0;
-                state <= WAIT_PC;
-              end
+              pc <= (i_imm + x[rs1]) & 32'hFFFFFFFE;
+              do_decode <= '0;
+              state <= WAIT_PC;
             end
             `OP_B: begin
               unique case (f3)
@@ -278,7 +276,7 @@ module cpu #(
 
               unique case (f3)
                 `F3_SB: begin
-                  unique case ({(x[rs1] + s_imm)}[1:0])
+                  unique case (s_addr[1:0])
                     2'b00: begin
                       wdata_o   <= {24'b0, x[rs2][7:0]};
                       byte_en_o <= 4'b0001;
@@ -299,7 +297,7 @@ module cpu #(
                   endcase
                 end
                 `F3_SH: begin
-                  unique case ({(x[rs1] + s_imm)}[1:0])
+                  unique case (s_addr[1:0])
                     2'b00: begin
                       wdata_o   <= {16'b0, x[rs2][15:0]};
                       byte_en_o <= 4'b0011;
@@ -313,7 +311,9 @@ module cpu #(
                       byte_en_o <= 4'b1100;
                     end
                     2'b11: begin
+`ifdef VSIM
                       assert (0 && |"Illegal SH");
+`endif
                       wdata_o   <= '0;
                       byte_en_o <= 4'b0000;
                     end
@@ -393,7 +393,9 @@ module cpu #(
             `OP_F: begin
             end
             `OP_SYS: begin
+`ifdef VSIM
                 if (csr_idx == XSUPPORT) assert(0 && |"Accessing unsupported CSR");
+`endif
               unique case (f3)
                 `F3_CSRRW: begin
                   if (!csr_read_only) csr[csr_idx] <= x[rs1];
@@ -479,7 +481,9 @@ module cpu #(
                   x[ex_rd] <= {{16{data_i[31]}}, data_i[31:16]};
                 end
                 2'b11: begin
+`ifdef VSIM
                   assert (0 && |"Illegal LH");
+`endif
                 end
                 default: ;
               endcase
@@ -516,7 +520,9 @@ module cpu #(
                   x[ex_rd] <= {{16'b0}, data_i[31:16]};
                 end
                 2'b11: begin
+`ifdef VSIM
                   assert (0 && |"Illegal LHU");
+`endif
                 end
                 default: ;
               endcase
