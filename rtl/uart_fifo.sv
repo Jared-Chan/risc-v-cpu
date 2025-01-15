@@ -1,3 +1,4 @@
+`include "config.svh"
 /* read when empty: last read data
  * write when full: overwrite last written
  */
@@ -19,7 +20,15 @@ module uart_fifo #(
 
   localparam int IdxWidth = $clog2(BufferSize);
 
+`ifdef QUARTUS
+// QUARTUS ignores ramstyle and infers a RAM block anyway
+// works when BufferSize = 8
+// doesn't work when BUfferSize = 128, due to incorrect write-enable logic 
+// inference on Quartus's part
+ (* ramstyle = "logic" *) logic [DataBitsSize - 1:0] buffer[BufferSize];
+`else
   logic [DataBitsSize - 1:0] buffer[BufferSize];
+`endif
   logic [IdxWidth:0] write_idx, read_idx;
   logic next_empty, next_full;
 
@@ -27,6 +36,7 @@ module uart_fifo #(
     empty = write_idx == read_idx ? 1'b1 : 1'b0;
     full = (write_idx[IdxWidth] != read_idx[IdxWidth]) &
         (write_idx[IdxWidth-1:0] == read_idx[IdxWidth-1:0]) ? 1'b1 : 1'b0;
+    q = buffer[read_idx[IdxWidth-1:0]];
   end
 
   always_ff @(posedge clk, negedge rst_n) begin
@@ -34,16 +44,15 @@ module uart_fifo #(
       read_idx  <= '0;
       write_idx <= '0;
     end else begin
-      q <= buffer[read_idx];
       if (read_ack) begin
         if (!empty) begin
-            q <= buffer[read_idx[IdxWidth-1:0] + 1'b1];
+          //q <= buffer[read_idx[IdxWidth-1:0] + 1'b1];
           read_idx <= read_idx + 1'b1;
         end else begin
-            q <= buffer[read_idx[IdxWidth-1:0]];
+          //q <= buffer[read_idx[IdxWidth-1:0]];
           read_idx <= read_idx;
         end
-      end
+      end 
       if (write_req) begin
         buffer[write_idx[IdxWidth-1:0]] <= data;
         if (!full) write_idx <= write_idx + 1'b1;
