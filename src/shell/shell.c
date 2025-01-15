@@ -94,6 +94,7 @@ void mirror() {
     while (true) {
         c = uart_get_char();
         uart_send_char(c);
+        if (c == 'q') break;
     }
 }
 
