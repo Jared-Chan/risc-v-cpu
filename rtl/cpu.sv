@@ -21,6 +21,7 @@ module cpu #(
 );
 
   localparam int CyclesPerUS = ClockFreqHz / 1_000_000;
+  localparam int USPerCycle = 1_000_000 / ClockFreqHz ;
 
   // General-purpose registers
   logic [`XLEN-1:0] x  [`RLEN];
@@ -179,8 +180,8 @@ module cpu #(
         clk_cnt <= '0;
         time_cnt <= time_cnt + 1'b1;
       end
-      if (CyclesPerUS == 0) begin
-        time_cnt <= time_cnt + 1'b1;
+      if (CyclesPerUS == 0 && USPerCycle > 0) begin
+        time_cnt <= time_cnt + USPerCycle;
       end
       byte_en_o <= 4'b1111;
 
