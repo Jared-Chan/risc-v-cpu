@@ -21,7 +21,6 @@ module uart_fifo #(
 
   logic [DataBitsSize - 1:0] buffer[BufferSize];
   logic [IdxWidth:0] write_idx, read_idx;
-  logic [IdxWidth:0] next_write_idx, next_read_idx;
   logic next_empty, next_full;
 
   always_comb begin
@@ -37,9 +36,13 @@ module uart_fifo #(
     end else begin
       q <= buffer[read_idx];
       if (read_ack) begin
-        q <= buffer[next_read_idx[IdxWidth-1:0]];
-        if (!empty) read_idx <= read_idx + 1'b1;
-        else read_idx <= read_idx;
+        if (!empty) begin
+            q <= buffer[read_idx[IdxWidth-1:0] + 1'b1];
+          read_idx <= read_idx + 1'b1;
+        end else begin
+            q <= buffer[read_idx[IdxWidth-1:0]];
+          read_idx <= read_idx;
+        end
       end
       if (write_req) begin
         buffer[write_idx[IdxWidth-1:0]] <= data;
