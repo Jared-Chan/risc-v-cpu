@@ -21,11 +21,11 @@ module uart_fifo #(
   localparam int IdxWidth = $clog2(BufferSize);
 
 `ifdef QUARTUS
-// QUARTUS ignores ramstyle and infers a RAM block anyway
-// works when BufferSize = 8
-// doesn't work when BUfferSize = 128, due to incorrect write-enable logic 
-// inference on Quartus's part
- (* ramstyle = "logic" *) logic [DataBitsSize - 1:0] buffer[BufferSize];
+  // QUARTUS ignores ramstyle and infers a RAM block anyway
+  // works when BufferSize = 8
+  // doesn't work when BUfferSize = 128, due to incorrect write-enable logic
+  // inference on Quartus's part
+  (* ramstyle = "logic" *) logic [DataBitsSize - 1:0] buffer[BufferSize];
 `else
   logic [DataBitsSize - 1:0] buffer[BufferSize];
 `endif
@@ -46,13 +46,11 @@ module uart_fifo #(
     end else begin
       if (read_ack) begin
         if (!empty) begin
-          //q <= buffer[read_idx[IdxWidth-1:0] + 1'b1];
           read_idx <= read_idx + 1'b1;
         end else begin
-          //q <= buffer[read_idx[IdxWidth-1:0]];
           read_idx <= read_idx;
         end
-      end 
+      end
       if (write_req) begin
         buffer[write_idx[IdxWidth-1:0]] <= data;
         if (!full) write_idx <= write_idx + 1'b1;

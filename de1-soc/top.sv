@@ -9,29 +9,28 @@ module top (
 
     output logic [9:0] LEDR
 );
-    logic rst_n;
-    logic uart_rx;
-    logic uart_tx;
+  logic rst_n;
+  logic uart_rx;
+  logic uart_tx;
 
-    assign rst_n = KEY_N_0;
-    assign uart_rx = GPIO_1_34;
-    assign GPIO_1_35 = uart_tx;
+  assign rst_n = KEY_N_0;
+  assign uart_rx = GPIO_1_34;
+  assign GPIO_1_35 = uart_tx;
 
-    wire pll_outclk;
-    wire pll_outclk_ram;
-    pll pll_inst(
-        .refclk(CLOCK_50),
-        .rst(~rst_n),
-        .outclk_0(pll_outclk),
-        .outclk_1(pll_outclk_ram)
-    );
+  wire pll_outclk;
+  wire pll_outclk_ram;
+  pll pll_inst (
+      .refclk(CLOCK_50),
+      .rst(~rst_n),
+      .outclk_0(pll_outclk),
+      .outclk_1(pll_outclk_ram)
+  );
 
-    logic [31:0] clk_cnt = 0;
-    always_ff @(posedge pll_outclk) begin
-        clk_cnt <= clk_cnt + 1;
-        if (clk_cnt[20] == 0)
-            LEDR[0] <= ~LEDR[0];
-    end
+  logic [31:0] clk_cnt = 0;
+  always_ff @(posedge pll_outclk) begin
+    clk_cnt <= clk_cnt + 1;
+    if (clk_cnt[20] == 0) LEDR[0] <= ~LEDR[0];
+  end
 
 
   logic [31:0] idata;
@@ -39,10 +38,10 @@ module top (
   logic [31:0] wdata;
   logic [29:0] addr;
   logic wr, addr_strobe;
-  logic [3:0] byte_en;
-  logic [3:0] ibyte_en;
+  logic [ 3:0] byte_en;
+  logic [ 3:0] ibyte_en;
 
-  wire [31:0] data;
+  wire  [31:0] data;
 
   logic ram_select, io_select;
 
@@ -74,20 +73,20 @@ module top (
   logic ram_wr;
   assign ram_wr = ram_select ? wr : '0;
 
-dual_port_ram	dual_port_ram_inst (
-	.address_a ( iaddr ),
-	.address_b ( addr ),
-	.byteena_a ( ibyte_en ),
-	.byteena_b ( byte_en ),
-	.clock ( pll_outclk_ram ),
-	.enable ( 1'b1 ),
-	.data_a ( 32'b0 ),
-	.data_b ( wdata ),
-	.wren_a ( 1'b0 ),
-    .wren_b(ram_wr),
-	.q_a ( idata ),
-	.q_b ( ram_data_o )
-	);
+  dual_port_ram dual_port_ram_inst (
+      .address_a(iaddr),
+      .address_b(addr),
+      .byteena_a(ibyte_en),
+      .byteena_b(byte_en),
+      .clock(pll_outclk_ram),
+      .enable(1'b1),
+      .data_a(32'b0),
+      .data_b(wdata),
+      .wren_a(1'b0),
+      .wren_b(ram_wr),
+      .q_a(idata),
+      .q_b(ram_data_o)
+  );
 
   logic [3:0] uart_addr;
   logic [7:0] uart_wdata;
