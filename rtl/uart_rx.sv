@@ -8,11 +8,10 @@ module uart_rx #(
 ) (
     input logic clk,
     input logic rst_n,
-    output logic ready,
     input logic rx_sig,
-    output logic [$clog2(BufferSize)-1:0] next_rx_data_idx,
 
-    output logic [7:0] read_buffer[BufferSize]
+    output logic write_req,
+    output logic [7:0] data
 );
   typedef enum {
     IDLE,
@@ -67,16 +66,16 @@ module uart_rx #(
 
   always_ff @(posedge clk, negedge rst_n) begin
     if (!rst_n) begin
-      next_rx_data_idx <= '0;
       rx_data_cnt <= '0;
-      ready <= '0;
       rx_clk_cnt <= '0;
+      data <= '0;
+      write_req <= '0;
     end else begin
       rx_clk_cnt <= rx_clk_cnt + 1'b1;
+      write_req <= '0;
       case (rx_state)
         IDLE: begin
           if (rx_sig == 1'b0) begin
-            ready <= '0;
             rx_clk_cnt <= '0;
           end
         end
@@ -84,14 +83,14 @@ module uart_rx #(
           // Sample in the middle of a period
           if (rx_clk_cnt == SClkPeriod + SClkPeriod / 2) begin
             rx_clk_cnt <= '0;
-            read_buffer[next_rx_data_idx][rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
+            data[rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
             rx_data_cnt <= rx_data_cnt + 1'b1;
           end
         end
         DATA: begin
           if (rx_clk_cnt == SClkPeriod) begin
             rx_clk_cnt <= '0;
-            read_buffer[next_rx_data_idx][rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
+            data[rx_data_cnt[$clog2(DataBitsSize)-1:0]] <= rx_sig;
             rx_data_cnt <= rx_data_cnt + 1'b1;
           end
         end
@@ -102,11 +101,8 @@ module uart_rx #(
         end
         STOP: begin
           if (rx_clk_cnt == SClkPeriod) begin
-            ready <= '1;
+            write_req <= '1;
             rx_data_cnt <= '0;
-            //TODO: 1'b0 should come from BufferSize width
-            if ({1'b0, next_rx_data_idx} == BufferSize - 1'b1) next_rx_data_idx <= '0;
-            else next_rx_data_idx <= next_rx_data_idx + 1'b1;
           end
         end
         default: ;

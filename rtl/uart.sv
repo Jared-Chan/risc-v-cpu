@@ -25,10 +25,15 @@ module uart #(
   // 0x3 (0x0C) : data to transmit (write-only)
   // 0x4 (0x10) : 7'b0, write ready (read-only)
 
-  logic [DataBitsSize - 1:0] read_buffer[BufferSize];
   logic [DataBitsSize - 1:0] write_data;
-  logic [$clog2(BufferSize)-1:0] next_rx_data_idx, cur_read_data_idx;
   logic ready, write, write_ready;
+
+  logic [DataBitsSize - 1:0] ufifo_data;
+  logic [DataBitsSize - 1:0] ufifo_q;
+  logic ufifo_full;
+  logic ufifo_empty;
+  logic ufifo_read_ack;
+  logic ufifo_write_req;
 
   logic [31:0] timer = '0;
   always @(posedge clk, negedge rst_n)
@@ -39,21 +44,19 @@ module uart #(
   always @(posedge clk, negedge rst_n) begin
     if (!rst_n) begin
       data <= '0;
-      cur_read_data_idx <= '0;
       write <= '0;
+      ufifo_read_ack <= 1'b0;
     end else if (addr_strobe) begin
       write <= '0;
+      ufifo_read_ack <= 1'b0;
       case (addr)
         4'h0: begin
-          if (cur_read_data_idx == next_rx_data_idx) data[0] <= 1'b0;
-          else data[0] <= ready;
+          if (ufifo_empty) data[0] <= 1'b0;
+          else data[0] <= 1'b1;
         end
         4'h1: begin
-          data <= read_buffer[cur_read_data_idx];
-          if (cur_read_data_idx != next_rx_data_idx) begin
-            if ({1'b0, cur_read_data_idx} == BufferSize - 1'b1) cur_read_data_idx <= '0;
-            else cur_read_data_idx <= cur_read_data_idx + 1;
-          end
+          data <= ufifo_q;
+          ufifo_read_ack <= 1'b1;
         end
         4'h2: begin
           write <= wdata[0];
@@ -71,9 +74,24 @@ module uart #(
       //$display("\x1B[32mUART CTRL \033[0m addr is 0x%0h ready is 0x%0h data is 0x%0h write is 0x%0h write_data is 0x%0h write_ready is 0x%0h",addr, ready, read_buffer[cur_read_data_idx], wdata[0], wdata, write_ready);
     end else begin
       write <= '0;
+      ufifo_read_ack <= 1'b0;
     end
   end
   // end: data interface to cpu
+
+  uart_fifo #(
+      .DataBitsSize(DataBitsSize),
+      .BufferSize  (BufferSize)
+  ) ufifo (
+      .clk(clk),
+      .rst_n(rst_n),
+      .read_ack(ufifo_read_ack),
+      .write_req(ufifo_write_req),
+      .data(ufifo_data),
+      .q(ufifo_q),
+      .full(ufifo_full),
+      .empty(ufifo_empty)
+  );
 
   uart_rx #(
       .BaudRate(BaudRate),
@@ -85,9 +103,8 @@ module uart #(
   ) rx (
       .clk(clk),
       .rst_n(rst_n),
-      .next_rx_data_idx(next_rx_data_idx),
-      .ready(ready),
-      .read_buffer(read_buffer),
+      .write_req(ufifo_write_req),
+      .data(ufifo_data),
       .rx_sig(rx_sig)
   );
 

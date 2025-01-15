@@ -181,7 +181,7 @@ module cpu #(
         time_cnt <= time_cnt + 1'b1;
       end
       if (CyclesPerUS == 0 && USPerCycle > 0) begin
-        time_cnt <= time_cnt + USPerCycle;
+        time_cnt <= time_cnt + {32'b0, USPerCycle};
       end
       byte_en_o <= 4'b1111;
 

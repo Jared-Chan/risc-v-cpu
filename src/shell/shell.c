@@ -89,6 +89,14 @@ void dump_memory() {
     }
 }
 
+void mirror() {
+    char c;
+    while (true) {
+        c = uart_get_char();
+        uart_send_char(c);
+    }
+}
+
 int main(void) {
     char c;
     putstr("Starting shell\n");
@@ -116,6 +124,9 @@ int main(void) {
             break;
         case 'd':
             dump_memory();
+            break;
+        case 'm':
+            mirror();
             break;
         default:
             uart_send_char(' ');
