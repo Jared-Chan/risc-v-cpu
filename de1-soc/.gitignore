@@ -1,0 +1,7 @@
+db/
+incremental_db/
+greybox_tmp/
+output_files/
+*_dump.txt
+*_log.txt
+*.bak
