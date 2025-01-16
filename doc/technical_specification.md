@@ -78,7 +78,7 @@ The access to CSRs are defined in line with the "Zicsr" extension.
       <td>R</td>
       <td>TIME</td>
       <td>
-      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds if the CPU clock frequency is greater than or equal to 1 MHz. Otherwise, The unit is 1/(clock frequency) s.
+      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds.
       </td>
     </tr>
     <tr>

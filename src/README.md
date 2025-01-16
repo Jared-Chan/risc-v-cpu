@@ -79,7 +79,7 @@ Output is printed to `mock_uart_output.txt`.
 
 ### Results
 
-* Simulated with verilator
+* Simulated with verilator and run on an FPGA
 * 10 MHz clock
 * On-chip RAM of 32 KB
 

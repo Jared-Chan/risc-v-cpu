@@ -174,6 +174,9 @@ module cpu #(
       do_decode <= '1;
       wr_o <= 0;
       data_addr_strobe_o <= '0;
+      byte_en_o <= 4'b1111;
+
+      // begin: cycle, time, and instret
       cycle <= cycle + 1'b1;
       clk_cnt <= clk_cnt + 1'b1;
       if (CyclesPerUS > 0 && clk_cnt == CyclesPerUS - 1) begin
@@ -183,7 +186,7 @@ module cpu #(
       if (CyclesPerUS == 0 && USPerCycle > 0) begin
         time_cnt <= time_cnt + {32'b0, USPerCycle};
       end
-      byte_en_o <= 4'b1111;
+      // end: cycle, time, and instret
 
       unique case (state)
         EXECUTE: begin

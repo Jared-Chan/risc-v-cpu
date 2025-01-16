@@ -1,0 +1,64 @@
+#! /bin/sh
+
+help="
+Usage: $(basename $0) [OPTIONS] file depth
+
+Arugments: 
+  file           output of (hexdump -v -e '1/4 \"%08x\\\n\"')
+  depth          size of memory in words
+
+Options:
+  -h                           Display this message
+"
+
+if [[ $# -eq 0 ]]; then
+    echo "$help"
+    exit 0
+fi
+
+if [ $1 = "-h" ]; then
+    echo "$help"
+    exit 0
+fi
+
+if [[ $# -ne 2 ]]; then
+    echo "Illegal number of parameters"
+    echo "$help"
+    exit 2
+fi
+
+
+memx4=$1
+depth=$2
+width=32
+address_radix=HEX
+data_radix=HEX
+ofile="$memx4.mif"
+
+echo "Arguments: "
+echo $1
+echo $2
+echo "Out file: $ofile"
+
+if [ -e $ofile ]; then
+    echo "File exists!"
+    exit
+fi
+
+# overwrite
+echo "DEPTH = $depth;" > $ofile
+# append
+echo "WIDTH = $width;" >> $ofile
+echo "ADDRESS_RADIX = HEX;" >> $ofile
+echo "DATA_RADIX = HEX;" >> $ofile
+echo "CONTENT" >> $ofile
+echo "BEGIN" >> $ofile
+
+addr=0
+
+while IFS= read -r line; do
+  printf "%X : %s;\n" $addr $line >> $ofile
+  addr=$(($addr + 1))
+done < $1
+
+echo "END" >> $ofile
