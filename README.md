@@ -33,6 +33,7 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
     * `coremark/`: CoreMark
     * `shell/`: simple interactive shell
     * `util.h`, `util.c`: utilities for UART control and CSR reading
+    * `create_mif`: script to create memory initialization files `.mif` from `hexdump` output
     * [Details](./src/README.md)
 * `de1-soc/`: port to the DE1-SoC FPGA
     * Quartus project file
