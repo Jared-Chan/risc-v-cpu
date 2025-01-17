@@ -114,15 +114,16 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
 
     // TODO remove
     /*crave::crv_constraint c_opcode_val{*/
-    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::SYS)};*/
+    /*    r_opcode() == static_cast<std::uint8_t>(cpu_util::Opcode::JALR)};*/
     /*crave::crv_constraint c_f3_val{*/
     /*    r_funct3() == static_cast<std::uint8_t>(cpu_util::F3::BLT)};*/
-    /*crave::crv_constraint c_imm_val{r_imm() == 0x00000C00};*/
-    /*crave::crv_constraint c_rs1_val_val{r_rs1_val() == 0x101040a};*/
-    /*crave::crv_constraint c_rs2_val_val{r_rs2_val() == 0x2000003};*/
+    /*crave::crv_constraint c_imm_val{r_imm() == 0x101000};*/
+    /*crave::crv_constraint c_rs1_val_val{r_rs1_val() == 0xfffff800};*/
+    /*crave::crv_constraint c_rs2_val_val{r_rs2_val() == 0xffffd000};*/
     /*crave::crv_constraint c_rs1_val{r_rs1() == 0x7};*/
     /*crave::crv_constraint c_rs2_val{r_rs2() == 0x10};*/
     /*crave::crv_constraint c_rd_val{r_rd() == 0x2};*/
+    /*crave::crv_constraint c_iaddr_val{r_iaddr() == 0x800};*/
     // remove end
 
     crave::crv_constraint c_funct7_range{crave::inside(r_funct7(), u8_f7)};
@@ -868,6 +869,11 @@ class cpu_scenario_item : public uvm_randomized_sequence_item {
             imem[(cur_iaddr + 2) & CPU_ADDR_MASK] = check_item;
             instruction_addresses.push((cur_iaddr + 1) & CPU_ADDR_MASK);
             instruction_addresses.push((cur_iaddr + 2) & CPU_ADDR_MASK);
+            str.str(std::string());
+            str << "Made NOP for branch address checks, next addrs: "
+                << std::hex << cur_iaddr + 1 << " " << std::hex
+                << cur_iaddr + 2;
+            UVM_INFO(this->get_name(), str.str(), uvm::UVM_DEBUG);
             should_check_write = false;
             break;
 

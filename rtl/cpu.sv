@@ -21,10 +21,12 @@ module cpu #(
 );
 
   localparam int CyclesPerUS = ClockFreqHz / 1_000_000;
-  localparam int USPerCycle = 1_000_000 / ClockFreqHz ;
+  localparam int USPerCycle = 1_000_000 / ClockFreqHz;
 
   // General-purpose registers
-  logic [`XLEN-1:0] x  [`RLEN];
+  logic [`XLEN-1:0] x[`RLEN];
+  logic [`XLEN-1:0] x_rs1;
+  logic [`XLEN-1:0] x_rs2;
 
   logic [`RLEN-1:0] pc;
   assign iaddr_o = pc[31:2];
@@ -34,17 +36,17 @@ module cpu #(
   assign addr_o = full_addr_o[31:2];
 
   typedef enum {
-      CYCLE,
-      CYCLE_H,
-      TIME,
-      TIME_H,
-      INSTRET,
-      INSTRET_H,
-      XSUPPORT // unsupported CSR
+    CYCLE,
+    CYCLE_H,
+    TIME,
+    TIME_H,
+    INSTRET,
+    INSTRET_H,
+    XSUPPORT    // unsupported CSR
   } csr_e;
 
   // Control and Status Registers
-  logic [`XLEN-1:0] csr[ 6];
+  logic [`XLEN-1:0] csr[6];
 
   // Cycle and Time counters
   logic [63:0] cycle;
@@ -57,37 +59,47 @@ module cpu #(
   logic [6:0] opcode;
 
   logic [6:0] f7;
+  logic [6:0] f7_reg;
   logic [4:0] rs2;
+  logic [4:0] rs2_reg;
   logic signed [31:0] rs2_s;
-  assign rs2_s = x[rs2];
   logic [4:0] rs1;
+  logic [4:0] rs1_reg;
   logic signed [31:0] rs1_s;
-  assign rs1_s = x[rs1];
   logic [2:0] f3;
+  logic [2:0] f3_reg;
   logic [4:0] rd;
+  logic [4:0] rd_reg;
 
   // I-type
   logic [31:0] i_imm;
+  logic [31:0] i_imm_reg;
   logic signed [31:0] i_imm_s;
+  logic signed [31:0] i_imm_reg_s;
   logic [4:0] i_shamt;
+  logic [4:0] i_shamt_reg;
   logic [6:0] i_f7;
   assign i_shamt = i_imm[4:0];
   assign i_f7 = i_imm[11:5];
   assign i_imm_s = i_imm;
+  assign i_imm_reg_s = i_imm_reg;
 
   // S-type
   logic [31:0] s_imm;
+  logic [31:0] s_imm_reg;
   logic [31:0] s_addr;
-  assign s_addr = x[rs1] + s_imm;
+  logic [31:0] s_addr_reg;
 
   // B-type (~S)
   logic [31:0] b_imm;
 
   // U-type
   logic [31:0] u_imm;
+  logic [31:0] u_imm_reg;
 
   // J-type
   logic [31:0] j_imm;
+  logic [31:0] j_imm_reg;
 
   // CSR
   logic [31:0] csr_imm;
@@ -98,47 +110,320 @@ module cpu #(
 
 
   logic [31:0] dec_pc;  // pc of decoded instruction
+  logic [31:0] branch_dest;
+  logic [31:0] auipc_result;
+  logic [31:0] j_rd;
+  logic [31:0] j_dest;
+  logic [31:0] load_addr;
+
+  always_comb begin
+    {f7, rs2, rs1, f3, rd} = {
+      idata_i[31:25], idata_i[24:20], idata_i[19:15], idata_i[14:12], idata_i[11:7]
+    };
+
+    i_imm = {{21{idata_i[31]}}, idata_i[30:25], idata_i[24:21], idata_i[20]};
+
+    s_imm = {{21{idata_i[31]}}, idata_i[30:25], idata_i[11:8], idata_i[7]};
+
+    b_imm = {{20{idata_i[31]}}, idata_i[7], idata_i[30:25], idata_i[11:8], 1'b0};
+
+    u_imm = {idata_i[31], idata_i[30:20], idata_i[19:12], 12'b0};
+
+    j_imm = {{12{idata_i[31]}}, idata_i[19:12], idata_i[20], idata_i[30:25], idata_i[24:21], 1'b0};
+
+    // Avoid data hazard
+    if (state == EXECUTE && (opcode == `OP_LUI || opcode == `OP_AUIPC ||
+        opcode == `OP_JAL || opcode == `OP_JALR || opcode == `OP_RI ||
+        opcode == `OP_RR || opcode == `OP_SYS)) begin
+      x_rs1  = rd_reg == rs1 ? x_rd : x[rs1];
+      x_rs2  = rd_reg == rs2 ? x_rd : x[rs2];
+      s_addr = rd_reg == rs1 ? x_rd + s_imm : x[rs1] + s_imm;
+      rs1_s  = rd_reg == rs1 ? x_rd : x[rs1];
+      rs2_s  = rd_reg == rs2 ? x_rd : x[rs2];
+    end else begin
+      x_rs1  = x[rs1];
+      x_rs2  = x[rs2];
+      s_addr = x[rs1] + s_imm;
+      rs2_s  = x[rs2];
+      rs1_s  = x[rs1];
+    end
+  end
 
   always_ff @(posedge clk, negedge rst_n) begin : decode
     if (!rst_n) opcode <= 7'b0;
     else if (do_decode) begin
+      `TRACE
       // pc is the pc of the next instruction
       // pc - 4 is the pc of the instruction being decoded
       dec_pc <= pc - 4;
       opcode <= idata_i[6:0];
 
-      {f7, rs2, rs1, f3, rd} <= {
-        idata_i[31:25], idata_i[24:20], idata_i[19:15], idata_i[14:12], idata_i[11:7]
-      };
+      branch_dest <= pc - 4 + b_imm;
+      auipc_result <= pc - 4 + u_imm;
 
-      i_imm <= {{21{idata_i[31]}}, idata_i[30:25], idata_i[24:21], idata_i[20]};
+      rs1_reg <= rs1;
+      rs2_reg <= rs2;
+      rd_reg <= rd;
+      f7_reg <= (idata_i[6:0] == `OP_RI && f3 == `F3_ADDSUB) ? `F7_ADD : f7;
+      f3_reg <= f3;
+      u_imm_reg <= u_imm;
+      s_imm_reg <= s_imm;
+      i_imm_reg <= i_imm;
+      j_imm_reg <= j_imm;
+      i_shamt_reg <= i_shamt;
+      j_rd <= pc;  // dec_pc + 4
+      j_dest <= idata_i[6:0] == `OP_JAL ? pc - 4 + j_imm : (i_imm + x_rs1) & 32'hFFFFFFFE;
+      load_addr <= x_rs1 + i_imm;
+      s_addr_reg <= s_addr;
 
-      s_imm <= {{21{idata_i[31]}}, idata_i[30:25], idata_i[11:8], idata_i[7]};
+      alu_operand_1 <= f3 == `F3_SLT ? rs1_s : x_rs1;
+      alu_operand_2 <= idata_i[6:0] == `OP_RR ?
+          (f3 == `F3_SLT ? rs2_s : x_rs2) :
+          (f3 == `F3_SLT ? i_imm_s :
+          ((f3 == `F3_SLL || f3 == `F3_SR) ? {27'b0, i_shamt} : i_imm));
 
-      b_imm <= {{20{idata_i[31]}}, idata_i[7], idata_i[30:25], idata_i[11:8], 1'b0};
-
-      u_imm <= {idata_i[31], idata_i[30:20], idata_i[19:12], 12'b0};
-
-      j_imm <= {
-        {12{idata_i[31]}}, idata_i[19:12], idata_i[20], idata_i[30:25], idata_i[24:21], 1'b0
-      };
+      comp_operand_1 <= x_rs1;
+      comp_operand_2 <= x_rs2;
 
       csr_src_dest <= idata_i[31:20];
       case (idata_i[31:20])
-          `CSR_CYCLE: csr_idx <= CYCLE;
-          `CSR_CYCLE_H: csr_idx <= CYCLE_H;
-          `CSR_TIME: csr_idx <= TIME;
-          `CSR_TIME_H: csr_idx <= TIME_H;
-          `CSR_INSTRET: csr_idx <= INSTRET;
-          `CSR_INSTRET_H: csr_idx <= INSTRET_H;
-          default: csr_idx <= XSUPPORT;
+        `CSR_CYCLE: csr_idx <= CYCLE;
+        `CSR_CYCLE_H: csr_idx <= CYCLE_H;
+        `CSR_TIME: csr_idx <= TIME;
+        `CSR_TIME_H: csr_idx <= TIME_H;
+        `CSR_INSTRET: csr_idx <= INSTRET;
+        `CSR_INSTRET_H: csr_idx <= INSTRET_H;
+        default: csr_idx <= XSUPPORT;
       endcase
       csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
+    end // if do_decode
+    else if (state == WAIT_L) begin
+      // avoid data hazard when there are wait states and the combinational
+      // logic couldn't prevent it
+      if (ex_rd == rs1_reg) begin
+        j_dest <= opcode == `OP_JAL ? dec_pc + j_imm_reg : (i_imm_reg + x_rd) & 32'hFFFFFFFE;
+        load_addr <= x_rd + i_imm_reg;
+        s_addr_reg <= s_imm_reg + x_rd;
+        alu_operand_1 <= f3_reg == `F3_SLT ? x_rd_s : x_rd;
+        comp_operand_1 <= x_rd;
+      end
+
+      if (ex_rd == rs2_reg) begin
+        alu_operand_2 <= opcode == `OP_RR ?
+              (f3_reg == `F3_SLT ? x_rd_s : x_rd) :
+              (f3_reg == `F3_SLT ? i_imm_reg_s :
+              ((f3_reg == `F3_SLL || f3_reg == `F3_SR) ? {27'b0, i_shamt} : i_imm_reg));
+        comp_operand_2 <= x_rd;
+      end
     end
   end
   /* End Decode */
 
-  /* Execute */
+  /* Comparator */
+  logic comp_result;
+  logic [`XLEN-1:0] comp_operand_1;
+  logic signed [`XLEN-1:0] comp_operand_1_s;
+  logic [`XLEN-1:0] comp_operand_2;
+  logic signed [`XLEN-1:0] comp_operand_2_s;
+  assign comp_operand_1_s = comp_operand_1;
+  assign comp_operand_2_s = comp_operand_2;
+  always_comb begin
+    unique case (f3_reg)
+      `F3_BEQ: begin
+        if (comp_operand_1 == comp_operand_2) comp_result = '1;
+        else comp_result = '0;
+      end
+      `F3_BNE: begin
+        if (comp_operand_1 != comp_operand_2) comp_result = '1;
+        else comp_result = '0;
+      end
+      `F3_BLT: begin
+        if (comp_operand_1_s < comp_operand_2_s) comp_result = '1;
+        else comp_result = '0;
+      end
+      `F3_BGE: begin
+        if (comp_operand_1_s >= comp_operand_2_s) comp_result = '1;
+        else comp_result = '0;
+      end
+      `F3_BLTU: begin
+        if (comp_operand_1 < comp_operand_2) comp_result = '1;
+        else comp_result = '0;
+      end
+      `F3_BGEU: begin
+        if (comp_operand_1 >= comp_operand_2) comp_result = '1;
+        else comp_result = '0;
+      end
+      default: begin
+        comp_result = '0;
+      end
+    endcase
+  end
+  /* End Comparator */
+
+  /* ALU */
+  logic [`XLEN-1:0] alu_result;
+  logic [`XLEN-1:0] alu_operand_1;
+  logic signed [`XLEN-1:0] alu_operand_1_s;
+  logic [`XLEN-1:0] alu_operand_2;
+  logic signed [`XLEN-1:0] alu_operand_2_s;
+  assign alu_operand_1_s = alu_operand_1;
+  assign alu_operand_2_s = alu_operand_2;
+
+  always_comb begin
+    unique case (f3_reg)
+      `F3_ADDSUB: begin
+        if (f7_reg == `F7_ADD) alu_result = alu_operand_1 + alu_operand_2;
+        else alu_result = alu_operand_1 - alu_operand_2;
+      end
+      `F3_SLT: begin
+        alu_result = alu_operand_1_s < alu_operand_2_s ? 32'h0000_0001 : '0;
+      end
+      `F3_SLTU: begin
+        alu_result = alu_operand_1 < alu_operand_2 ? 32'h0000_0001 : '0;
+      end
+      `F3_XOR: begin
+        alu_result = alu_operand_1 ^ alu_operand_2;
+      end
+      `F3_OR: begin
+        alu_result = alu_operand_1 | alu_operand_2;
+      end
+      `F3_AND: begin
+        alu_result = alu_operand_1 & alu_operand_2;
+      end
+      `F3_SLL: begin
+        alu_result = alu_operand_1 << alu_operand_2;
+      end
+      `F3_SR: begin
+        if (f7_reg == `F7_SRL) alu_result = alu_operand_1 >> alu_operand_2;
+        else alu_result = alu_operand_1_s >>> alu_operand_2;
+      end
+      default: begin
+      end
+    endcase
+  end
+  /* End ALU */
+
+  /* Calculate x[rd] */
+  logic [31:0] x_rd;
+  logic signed [31:0] x_rd_s;
+  assign x_rd_s = x_rd;
+  always_comb begin
+    unique case (state)
+      EXECUTE: begin
+        unique case (opcode)
+          `OP_LUI: begin
+            x_rd = u_imm_reg;
+          end
+          `OP_AUIPC: begin
+            x_rd = auipc_result;
+          end
+          `OP_JAL: begin
+            x_rd = j_rd;
+          end
+          `OP_JALR: begin
+            x_rd = j_rd;
+          end
+          `OP_RI: begin
+            x_rd = alu_result;
+          end
+          `OP_RR: begin
+            x_rd = alu_result;
+          end
+          `OP_SYS: begin
+            x_rd = csr[csr_idx];
+          end
+          default: begin
+          end
+        endcase  // opcode
+      end
+      WAIT_L: begin
+        unique case (ex_f3)
+          `F3_LB: begin
+            unique case (full_addr_o[1:0])
+              2'b00: begin
+                x_rd = {{24{data_i[7]}}, data_i[7:0]};
+              end
+              2'b01: begin
+                x_rd = {{24{data_i[15]}}, data_i[15:8]};
+              end
+              2'b10: begin
+                x_rd = {{24{data_i[23]}}, data_i[23:16]};
+              end
+              2'b11: begin
+                x_rd = {{24{data_i[31]}}, data_i[31:24]};
+              end
+              default: ;
+            endcase
+          end
+          `F3_LH: begin
+            unique case (full_addr_o[1:0])
+              2'b00: begin
+                x_rd = {{16{data_i[15]}}, data_i[15:0]};
+              end
+              2'b01: begin
+                x_rd = {{16{data_i[23]}}, data_i[23:8]};
+              end
+              2'b10: begin
+                x_rd = {{16{data_i[31]}}, data_i[31:16]};
+              end
+              2'b11: begin
+`ifdef VSIM
+                assert (0 && |"Illegal LH");
+`endif
+              end
+              default: ;
+            endcase
+          end
+          `F3_LW: begin
+            x_rd = data_i;
+          end
+          `F3_LBU: begin
+            unique case (full_addr_o[1:0])
+              2'b00: begin
+                x_rd = {{24'b0}, data_i[7:0]};
+              end
+              2'b01: begin
+                x_rd = {{24'b0}, data_i[15:8]};
+              end
+              2'b10: begin
+                x_rd = {{24'b0}, data_i[23:16]};
+              end
+              2'b11: begin
+                x_rd = {{24'b0}, data_i[31:24]};
+              end
+              default: ;
+            endcase
+          end
+          `F3_LHU: begin
+            unique case (full_addr_o[1:0])
+              2'b00: begin
+                x_rd = {{16'b0}, data_i[15:0]};
+              end
+              2'b01: begin
+                x_rd = {{16'b0}, data_i[23:8]};
+              end
+              2'b10: begin
+                x_rd = {{16'b0}, data_i[31:16]};
+              end
+              2'b11: begin
+`ifdef VSIM
+                assert (0 && |"Illegal LHU");
+`endif
+              end
+              default: ;
+            endcase
+          end
+          default: begin
+          end
+        endcase  // OP_L f3
+      end
+      default: begin
+      end
+    endcase  // state
+  end
+  /* End: Calculate x[rd] */
+
+  /* Execute/Write-back/Memory */
   logic [6:0] ex_opcode;
   logic [2:0] ex_f3;
   logic [4:0] ex_rd;
@@ -180,7 +465,7 @@ module cpu #(
       cycle <= cycle + 1'b1;
       clk_cnt <= clk_cnt + 1'b1;
       if (CyclesPerUS > 0 && clk_cnt == CyclesPerUS - 1) begin
-        clk_cnt <= '0;
+        clk_cnt  <= '0;
         time_cnt <= time_cnt + 1'b1;
       end
       if (CyclesPerUS == 0 && USPerCycle > 0) begin
@@ -193,80 +478,39 @@ module cpu #(
           instret <= instret + 1'b1;
           unique case (opcode)
             `OP_LUI: begin
-              x[rd] <= u_imm;
+              x[rd_reg] <= x_rd;
             end
             `OP_AUIPC: begin
-              x[rd] <= dec_pc + u_imm;
+              x[rd_reg] <= x_rd;
             end
             `OP_JAL: begin
-              x[rd] <= dec_pc + 4;
-              pc <= dec_pc + j_imm;
+              x[rd_reg] <= x_rd;
+              pc <= j_dest;
               do_decode <= '0;
               state <= WAIT_PC;
               // else pc = pc + 4 is valid
               // should check addr alignment
             end
             `OP_JALR: begin
-              x[rd] <= dec_pc + 4;
+              x[rd_reg] <= x_rd;
               // should check addr alignment
-              pc <= (i_imm + x[rs1]) & 32'hFFFFFFFE;
+              pc <= j_dest;
               do_decode <= '0;
               state <= WAIT_PC;
             end
             `OP_B: begin
-              unique case (f3)
-                `F3_BEQ: begin
-                  if (x[rs1] == x[rs2]) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                `F3_BNE: begin
-                  if (x[rs1] != x[rs2]) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                `F3_BLT: begin
-                  if (rs1_s < rs2_s) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                `F3_BGE: begin
-                  if (rs1_s >= rs2_s) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                `F3_BLTU: begin
-                  if (x[rs1] < x[rs2]) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                `F3_BGEU: begin
-                  if (x[rs1] >= x[rs2]) begin
-                    pc <= dec_pc + b_imm;
-                    do_decode <= '0;
-                    state <= WAIT_PC;
-                  end
-                end
-                default: begin
-                end
-              endcase
+              if (comp_result) begin
+                pc <= branch_dest;
+                do_decode <= '0;
+                state <= WAIT_PC;
+              end
             end
             `OP_L: begin
               data_addr_strobe_o <= '1;
-              full_addr_o <= x[rs1] + i_imm;
+              full_addr_o <= load_addr;
               ex_opcode <= opcode;
-              ex_f3 <= f3;
-              ex_rd <= rd;
+              ex_f3 <= f3_reg;
+              ex_rd <= rd_reg;
 
               instret <= instret;
               pc <= pc;
@@ -275,43 +519,43 @@ module cpu #(
             end
             `OP_S: begin
               data_addr_strobe_o <= '1;
-              full_addr_o <= x[rs1] + s_imm;
+              full_addr_o <= s_addr_reg;
               wr_o <= '1;
 
-              unique case (f3)
+              unique case (f3_reg)
                 `F3_SB: begin
-                  unique case (s_addr[1:0])
+                  unique case (s_addr_reg[1:0])
                     2'b00: begin
-                      wdata_o   <= {24'b0, x[rs2][7:0]};
+                      wdata_o   <= {24'b0, x[rs2_reg][7:0]};
                       byte_en_o <= 4'b0001;
                     end
                     2'b01: begin
-                      wdata_o   <= {16'b0, x[rs2][7:0], 8'b0};
+                      wdata_o   <= {16'b0, x[rs2_reg][7:0], 8'b0};
                       byte_en_o <= 4'b0010;
                     end
                     2'b10: begin
-                      wdata_o   <= {8'b0, x[rs2][7:0], 16'b0};
+                      wdata_o   <= {8'b0, x[rs2_reg][7:0], 16'b0};
                       byte_en_o <= 4'b0100;
                     end
                     2'b11: begin
-                      wdata_o   <= {x[rs2][7:0], 24'b0};
+                      wdata_o   <= {x[rs2_reg][7:0], 24'b0};
                       byte_en_o <= 4'b1000;
                     end
                     default: ;
                   endcase
                 end
                 `F3_SH: begin
-                  unique case (s_addr[1:0])
+                  unique case (s_addr_reg[1:0])
                     2'b00: begin
-                      wdata_o   <= {16'b0, x[rs2][15:0]};
+                      wdata_o   <= {16'b0, x[rs2_reg][15:0]};
                       byte_en_o <= 4'b0011;
                     end
                     2'b01: begin
-                      wdata_o   <= {8'b0, x[rs2][15:0], 8'b0};
+                      wdata_o   <= {8'b0, x[rs2_reg][15:0], 8'b0};
                       byte_en_o <= 4'b0110;
                     end
                     2'b10: begin
-                      wdata_o   <= {x[rs2][15:0], 16'b0};
+                      wdata_o   <= {x[rs2_reg][15:0], 16'b0};
                       byte_en_o <= 4'b1100;
                     end
                     2'b11: begin
@@ -325,104 +569,47 @@ module cpu #(
                   endcase
                 end
                 `F3_SW: begin
-                  wdata_o <= x[rs2];
+                  wdata_o <= x[rs2_reg];
                 end
                 default: begin
                 end
               endcase  // OP_S f3
             end
             `OP_RI: begin
-              unique case (f3)
-                `F3_ADDSUB: begin
-                  x[rd] <= x[rs1] + i_imm;
-                end
-                `F3_SLT: begin
-                  x[rd] <= rs1_s < i_imm_s ? 32'h0000_0001 : '0;
-                end
-                `F3_SLTU: begin
-                  x[rd] <= x[rs1] < i_imm ? 32'h0000_0001 : '0;
-                end
-                `F3_XOR: begin
-                  x[rd] <= x[rs1] ^ i_imm;
-                end
-                `F3_OR: begin
-                  x[rd] <= x[rs1] | i_imm;
-                end
-                `F3_AND: begin
-                  x[rd] <= x[rs1] & i_imm;
-                end
-                `F3_SLL: begin
-                  x[rd] <= x[rs1] << i_shamt;
-                end
-                `F3_SR: begin
-                  if (i_f7 == `F7_SRL) x[rd] <= x[rs1] >> i_shamt;
-                  else x[rd] <= rs1_s >>> i_shamt;
-                end
-                default: begin
-                end
-              endcase
+              x[rd_reg] <= x_rd;
             end
             `OP_RR: begin
-              unique case (f3)
-                `F3_ADDSUB: begin
-                  if (f7 == `F7_ADD) x[rd] <= x[rs1] + x[rs2];
-                  else x[rd] <= x[rs1] - x[rs2];
-                end
-                `F3_SLT: begin
-                  x[rd] <= rs1_s < rs2_s ? 32'h0000_0001 : '0;
-                end
-                `F3_SLTU: begin
-                  x[rd] <= x[rs1] < x[rs2] ? 32'h0000_0001 : '0;
-                end
-                `F3_XOR: begin
-                  x[rd] <= x[rs1] ^ x[rs2];
-                end
-                `F3_OR: begin
-                  x[rd] <= x[rs1] | x[rs2];
-                end
-                `F3_AND: begin
-                  x[rd] <= x[rs1] & x[rs2];
-                end
-                `F3_SLL: begin
-                  x[rd] <= x[rs1] << x[rs2];
-                end
-                `F3_SR: begin
-                  if (f7 == `F7_SRL) x[rd] <= x[rs1] >> x[rs2];
-                  else x[rd] <= rs1_s >>> x[rs2];
-                end
-                default: begin
-                end
-              endcase
+              x[rd_reg] <= x_rd;
             end
             `OP_F: begin
             end
             `OP_SYS: begin
 `ifdef VSIM
-                if (csr_idx == XSUPPORT) assert(0 && |"Accessing unsupported CSR");
+              if (csr_idx == XSUPPORT) assert (0 && |"Accessing unsupported CSR");
 `endif
-              unique case (f3)
+              unique case (f3_reg)
                 `F3_CSRRW: begin
-                  if (!csr_read_only) csr[csr_idx] <= x[rs1];
-                  if (rd != 0) x[rd] <= csr[csr_idx];
+                  if (!csr_read_only) csr[csr_idx] <= x[rs1_reg];
+                  if (rd_reg != 0) x[rd_reg] <= x_rd;
                 end
                 `F3_CSRRS: begin
-                  x[rd] <= csr[csr_idx];
-                  if (rs1 != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1];
+                  x[rd_reg] <= x_rd;
+                  if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1_reg];
                 end
                 `F3_CSRRC: begin
-                  x[rd] <= csr[csr_idx];
-                  if (rs1 != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~x[rs1]);
+                  x[rd_reg] <= x_rd;
+                  if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~x[rs1_reg]);
                 end
                 `F3_CSRRWI: begin
                   if (!csr_read_only) csr[csr_idx] <= csr_imm;
-                  if (rd != 0) x[rd] <= csr[csr_idx];
+                  if (rd_reg != 0) x[rd_reg] <= x_rd;
                 end
                 `F3_CSRRSI: begin
-                  x[rd] <= csr[csr_idx];
+                  x[rd_reg] <= x_rd;
                   if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | csr_imm;
                 end
                 `F3_CSRRCI: begin
-                  x[rd] <= csr[csr_idx];
+                  x[rd_reg] <= x_rd;
                   if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
                 end
 `ifdef VSIM
@@ -455,85 +642,7 @@ module cpu #(
           instret <= instret + 1'b1;
           state <= EXECUTE;
           //if (ex_opcode == `OP_L)
-          unique case (ex_f3)
-            `F3_LB: begin
-              unique case (full_addr_o[1:0])
-                2'b00: begin
-                  x[ex_rd] <= {{24{data_i[7]}}, data_i[7:0]};
-                end
-                2'b01: begin
-                  x[ex_rd] <= {{24{data_i[15]}}, data_i[15:8]};
-                end
-                2'b10: begin
-                  x[ex_rd] <= {{24{data_i[23]}}, data_i[23:16]};
-                end
-                2'b11: begin
-                  x[ex_rd] <= {{24{data_i[31]}}, data_i[31:24]};
-                end
-                default: ;
-              endcase
-            end
-            `F3_LH: begin
-              unique case (full_addr_o[1:0])
-                2'b00: begin
-                  x[ex_rd] <= {{16{data_i[15]}}, data_i[15:0]};
-                end
-                2'b01: begin
-                  x[ex_rd] <= {{16{data_i[23]}}, data_i[23:8]};
-                end
-                2'b10: begin
-                  x[ex_rd] <= {{16{data_i[31]}}, data_i[31:16]};
-                end
-                2'b11: begin
-`ifdef VSIM
-                  assert (0 && |"Illegal LH");
-`endif
-                end
-                default: ;
-              endcase
-            end
-            `F3_LW: begin
-              x[ex_rd] <= data_i;
-            end
-            `F3_LBU: begin
-              unique case (full_addr_o[1:0])
-                2'b00: begin
-                  x[ex_rd] <= {{24'b0}, data_i[7:0]};
-                end
-                2'b01: begin
-                  x[ex_rd] <= {{24'b0}, data_i[15:8]};
-                end
-                2'b10: begin
-                  x[ex_rd] <= {{24'b0}, data_i[23:16]};
-                end
-                2'b11: begin
-                  x[ex_rd] <= {{24'b0}, data_i[31:24]};
-                end
-                default: ;
-              endcase
-            end
-            `F3_LHU: begin
-              unique case (full_addr_o[1:0])
-                2'b00: begin
-                  x[ex_rd] <= {{16'b0}, data_i[15:0]};
-                end
-                2'b01: begin
-                  x[ex_rd] <= {{16'b0}, data_i[23:8]};
-                end
-                2'b10: begin
-                  x[ex_rd] <= {{16'b0}, data_i[31:16]};
-                end
-                2'b11: begin
-`ifdef VSIM
-                  assert (0 && |"Illegal LHU");
-`endif
-                end
-                default: ;
-              endcase
-            end
-            default: begin
-            end
-          endcase  // OP_L f3
+          x[ex_rd] <= x_rd;
           //end
         end
         default: begin

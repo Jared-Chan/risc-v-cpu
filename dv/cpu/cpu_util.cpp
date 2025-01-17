@@ -466,6 +466,8 @@ void cpu_util::make_instruction(Opcode opcode, F3 f3, F7 f7, std::uint8_t rs1,
         exp_item.wr = true;
         exp_item.data = data;
 
+        //std::cout  << "CPU UTIL: Expected addr " << std::hex << exp_item.addr << "\n";
+
         switch (f3) {
         case (cpu_util::F3::SW):
             exp_item.wdata = rs2_val;

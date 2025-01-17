@@ -80,9 +80,9 @@ dec_pc, rd, u_imm);
 dec_pc, rd, j_imm);
 `define PRINT_X \
   $strobe("  x0=0x%0h x1=0x%0h x2=0x%0h x3=0x%0h x4=0x%0h x5=0x%0h x6=0x%0h x7=0x%0h", x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]); \
-  $strobe("  x8=0x%0h x9=0x%0h x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
-  $strobe("  x16=0x%0h x17=0x%0h x18=0x%0h x19=0x%0h x20=0x%0h x21=0x%0h x22=0x%0h x23=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
-  $strobe("  x24=0x%0h x25=0x%0h x26=0x%0h x27=0x%0h x28=0x%0h x29=0x%0h x30=0x%0h x31=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]); \
+  $strobe("  x8=0x%0h x9=0x%0h xa=0x%0h xb=0x%0h xc=0x%0h xd=0x%0h xe=0x%0h xf=0x%0h", x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]); \
+  $strobe("  x10=0x%0h x11=0x%0h x12=0x%0h x13=0x%0h x14=0x%0h x15=0x%0h x16=0x%0h x17=0x%0h", x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23]); \
+  $strobe("  x18=0x%0h x19=0x%0h x1a=0x%0h x1b=0x%0h x1c=0x%0h x1d=0x%0h x1e=0x%0h x1f=0x%0h", x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]); \
   $strobe("  pc=0x%0h", pc);
 `define PRINT_STEP $display( \
           "time=%0t before opcode=0x%2h pc=0x%8h dec_pc=0x%8h iaddr_o=0x%8h idata_i=0x%8h addr_o=0x%8h data_i=0x%8h wdata_o=0x%8h wr_o=0x%1h pstate=0x%1h do_d=0x%1h", \
@@ -95,6 +95,10 @@ dec_pc, rd, j_imm);
 `define PRINT_JALR $display(\
 "JALR: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
 dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt);
+`define TRACE $display(\
+"time=%0t \x1B[32mTRACE BEFORE\033[0m opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h x_rs1=0x%8h x_rs2=0x%8h rs1_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h time_cnt=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h", $time, opcode, dec_pc, branch_dest, auipc_result, x_rs1, x_rs2, rs1_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, time_cnt, clk_cnt, instret, byte_en_o, x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H]);\
+$strobe(\
+"time=%0t \x1B[32mTRACE AFTER\033[0m opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h x_rs1=0x%8h x_rs2=0x%8h rs1_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h time_cnt=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h", $time, opcode, dec_pc, branch_dest, auipc_result, x_rs1, x_rs2, rs1_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, time_cnt, clk_cnt, instret, byte_en_o, x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H]);
 `else
 `define PRINT_R_TYPE
 `define PRINT_I_TYPE
@@ -108,5 +112,6 @@ dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt);
 `define PRINT_STEP
 `define PRINT_JAL
 `define PRINT_JALR
+`define TRACE
 `endif
 
