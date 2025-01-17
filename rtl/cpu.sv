@@ -212,7 +212,7 @@ module cpu #(
         alu_operand_2 <= opcode == `OP_RR ?
               (f3_reg == `F3_SLT ? x_rd_s : x_rd) :
               (f3_reg == `F3_SLT ? i_imm_reg_s :
-              ((f3_reg == `F3_SLL || f3_reg == `F3_SR) ? {27'b0, i_shamt} : i_imm_reg));
+              ((f3_reg == `F3_SLL || f3_reg == `F3_SR) ? {27'b0, i_shamt_reg} : i_imm_reg));
         comp_operand_2 <= x_rd;
       end
     end
@@ -308,6 +308,7 @@ module cpu #(
   logic signed [31:0] x_rd_s;
   assign x_rd_s = x_rd;
   always_comb begin
+    x_rd = '0; // Default
     unique case (state)
       EXECUTE: begin
         unique case (opcode)
