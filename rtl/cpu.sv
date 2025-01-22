@@ -115,7 +115,7 @@ module cpu #(
 
   // CSR
   logic [31:0] csr_imm;
-  assign csr_imm = {27'b0, rs1};
+  assign csr_imm = {27'b0, rs1_reg};
   logic [11:0] csr_src_dest;
   csr_e csr_idx;
   logic csr_read_only;

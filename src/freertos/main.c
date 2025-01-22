@@ -44,7 +44,7 @@
 
 #define mainTASK_FREQUENCY_MS         pdMS_TO_TICKS( 1000UL )
 #define mainTASK2_FREQUENCY_MS         pdMS_TO_TICKS( 2000UL )
-#define mainTIMER_SEND_FREQUENCY_MS        pdMS_TO_TICKS( 2000UL )
+#define mainTIMER_SEND_FREQUENCY_MS        pdMS_TO_TICKS( 1000UL )
 
 uint8_t ucHeap[ configTOTAL_HEAP_SIZE ];
 
@@ -99,15 +99,15 @@ static void prvTimerCallback( TimerHandle_t xTimerHandle )
     putstr( "3\n" );
 }
 /*-----------------------------------------------------------*/
-
 int main( void )
 {
     static StaticTask_t exampleTaskTCB;
     static StackType_t exampleTaskStack[ configMINIMAL_STACK_SIZE ];
 
-    static StaticTimer_t exampleTimer;
 
-    const TickType_t xTimerPeriod = mainTIMER_SEND_FREQUENCY_MS;
+    static StaticTask_t exampleTaskTCB2;
+    static StackType_t exampleTaskStack2[ configMINIMAL_STACK_SIZE ];
+
 
     ( void ) putstr( "Example FreeRTOS Project\n" );
 
@@ -115,21 +115,21 @@ int main( void )
                                 "example",
                                 configMINIMAL_STACK_SIZE,
                                 NULL,
-                                configMAX_PRIORITIES - 1U,
+                                configMAX_PRIORITIES - 2U,
                                 &( exampleTaskStack[ 0 ] ),
                                 &( exampleTaskTCB ) );
 
-    static StaticTask_t exampleTaskTCB2;
-    static StackType_t exampleTaskStack2[ configMINIMAL_STACK_SIZE ];
 
     ( void ) xTaskCreateStatic( exampleTask2,
                                 "example2",
                                 configMINIMAL_STACK_SIZE,
                                 NULL,
-                                configMAX_PRIORITIES - 2U,
+                                configMAX_PRIORITIES - 3U,
                                 &( exampleTaskStack2[ 0 ] ),
                                 &( exampleTaskTCB2 ) );
 
+    /*static StaticTimer_t exampleTimer;*/
+    /*const TickType_t xTimerPeriod = mainTIMER_SEND_FREQUENCY_MS;*/
     /*xTimer = xTimerCreateStatic( "Timer",*/
     /*                       xTimerPeriod,*/
     /*                       pdTRUE,*/
@@ -168,4 +168,32 @@ int main( void )
     }
 
 #endif /* #if ( configCHECK_FOR_STACK_OVERFLOW > 0 ) */
+/*-----------------------------------------------------------*/
+void vAssertCalled( const char * pcFileName,
+                    uint32_t ulLine )
+{
+    volatile uint32_t ulSetToNonZeroInDebuggerToContinue = 1;
+
+    /* Called if an assertion passed to configASSERT() fails.  See
+     * http://www.freertos.org/a00110.html#configASSERT for more information. */
+
+    putstr( "ASSERT! Line ");
+    putint( ( int ) ulLine, 10, false);
+    putstr(", file ");
+    putstr(pcFileName );
+    putstr("\n");
+
+    taskENTER_CRITICAL();
+    {
+        /* You can step out of this function to debug the assertion by using
+         * the debugger to set ulSetToNonZeroInDebuggerToContinue to a non-zero
+         * value. */
+        while( ulSetToNonZeroInDebuggerToContinue == 0 )
+        {
+            __asm volatile ( "NOP" );
+            __asm volatile ( "NOP" );
+        }
+    }
+    taskEXIT_CRITICAL();
+}
 /*-----------------------------------------------------------*/

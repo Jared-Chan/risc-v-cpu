@@ -274,13 +274,13 @@
  * memory in the build.  Set to 0 to exclude the ability to create dynamically
  * allocated objects from the build.  Defaults to 1 if left undefined.  See
  * https://www.freertos.org/Static_Vs_Dynamic_Memory_Allocation.html. */
-#define configSUPPORT_DYNAMIC_ALLOCATION             1
+#define configSUPPORT_DYNAMIC_ALLOCATION             0
 
 /* Sets the total size of the FreeRTOS heap, in bytes, when heap_1.c, heap_2.c
  * or heap_4.c are included in the build.  This value is defaulted to 4096 bytes but
  * it must be tailored to each application.  Note the heap will appear in the .bss
  * section.  See https://www.freertos.org/a00111.html. */
-#define configTOTAL_HEAP_SIZE                        1024
+#define configTOTAL_HEAP_SIZE                        1024/2
 
 /* Set configAPPLICATION_ALLOCATED_HEAP to 1 to have the application allocate
  * the array used as the FreeRTOS heap.  Set to 0 to have the linker allocate the
@@ -354,7 +354,7 @@
  * the stack overflow callback when configCHECK_FOR_STACK_OVERFLOW is set to 1.
  * See https://www.freertos.org/Stacks-and-stack-overflow-checking.html  Defaults
  * to 0 if left undefined. */
-#define configCHECK_FOR_STACK_OVERFLOW        0
+#define configCHECK_FOR_STACK_OVERFLOW        2
 
 /******************************************************************************/
 /* Run time and task stats gathering related definitions. *********************/
@@ -409,7 +409,7 @@
 #define configASSERT( x )         \
     if( ( x ) == 0 )              \
     {                             \
-        /*void vAssertCalled( const char * pcFileName, uint32_t ulLine );vAssertCalled( __FILE__, __LINE__ );*/\
+        void vAssertCalled( const char * pcFileName, uint32_t ulLine );vAssertCalled( __FILE__, __LINE__ );\
         taskDISABLE_INTERRUPTS(); \
         for( ; ; )                \
         ;                         \
@@ -647,6 +647,6 @@
 #define INCLUDE_xTaskResumeFromISR             1
 #define configMTIME_BASE_ADDRESS        ( 0xFFFFFFF0 )
 #define configMTIMECMP_BASE_ADDRESS     ( 0xFFFFFF00 )
-//#define configISR_STACK_SIZE_WORDS ( 500 )
+//#define configISR_STACK_SIZE_WORDS ( 800 )
 
 #endif /* FREERTOS_CONFIG_H */

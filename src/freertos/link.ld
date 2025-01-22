@@ -17,15 +17,19 @@ SECTIONS
       __bss_start = .;
     *(.bss*)
   } > ram
-  _end = .;
 
   .stack :
   {
     . = ALIGN(16);
     . = ORIGIN(ram) + LENGTH(ram);
+    /*. += 4K;*/
     _stack_top = .;
   } > ram
   PROVIDE ( _stack = _stack_top );
   PROVIDE ( __freertos_irq_stack_top = _stack_top );
+
+
+  _end = .;
+
 }
 

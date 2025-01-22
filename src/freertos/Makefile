@@ -39,9 +39,10 @@ SRCS ?= \
 		boot.S \
 		../util.c \
 		$(FREERTOS_KERNEL_DIR)/*.c \
-		$(FREERTOS_KERNEL_DIR)/portable/MemMang/heap_2.c \
 		$(FREERTOS_PORT_INCLUDE_DIR)/port.c \
 		portASM.S 
+
+		#$(FREERTOS_KERNEL_DIR)/portable/MemMang/heap_4.c \
 
 TARGET ?= rtos_example
 
