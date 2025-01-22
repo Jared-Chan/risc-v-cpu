@@ -167,7 +167,9 @@ module cpu #(
       // pc is the pc of the next instruction
       // pc - 4 is the pc of the instruction being decoded
       dec_pc <= pc - 4;
-      opcode <= idata_i[6:0];
+      if (s_addr[31:24] == `MREG_PREFIX && idata_i[6:0] == `OP_S) opcode <= `OP_S_MREG;
+      else if (s_addr[31:24] == `MREG_PREFIX && idata_i[6:0] == `OP_L) opcode <= `OP_L_MREG;
+      else opcode <= idata_i[6:0];
 
       branch_dest <= pc - 4 + b_imm;
       auipc_result <= pc - 4 + u_imm;
@@ -569,95 +571,95 @@ module cpu #(
                   state <= WAIT_PC;
                 end
               end
+              `OP_L_MREG: begin
+                unique case (load_addr[7:0])
+                  `MTIMECMP_ADDR_8: x[rd_reg] <= mtimecmp[31:0];
+                  `MTIMECMP_H_ADDR_8: x[rd_reg] <= mtimecmp[63:32];
+                  `MTIME_ADDR_8: x[rd_reg] <= mtime[31:0];
+                  `MTIME_H_ADDR_8: x[rd_reg] <= mtime[63:32];
+                  default: begin
+                  end
+                endcase
+              end
               `OP_L: begin
-                unique case (load_addr)
-                  // memory mapped registers
-                  `MTIMECMP_ADDR: x[rd_reg] <= mtimecmp[31:0];
-                  `MTIMECMP_H_ADDR: x[rd_reg] <= mtimecmp[63:32];
-                  `MTIME_ADDR: x[rd_reg] <= mtime[31:0];
-                  `MTIME_H_ADDR: x[rd_reg] <= mtime[63:32];
+                data_addr_strobe_o <= '1;
+                full_addr_o <= load_addr;
+                ex_opcode <= opcode;
+                ex_f3 <= f3_reg;
+                ex_rd <= rd_reg;
 
-                  default: begin  // regular load
-                    data_addr_strobe_o <= '1;
-                    full_addr_o <= load_addr;
-                    ex_opcode <= opcode;
-                    ex_f3 <= f3_reg;
-                    ex_rd <= rd_reg;
-
-                    instret <= instret;
-                    pc <= pc;
-                    do_decode <= '0;
-                    state <= WAIT_READ;
+                instret <= instret;
+                pc <= pc;
+                do_decode <= '0;
+                state <= WAIT_READ;
+              end
+              `OP_S_MREG: begin
+                unique case (s_addr_reg[7:0])
+                  `MTIMECMP_ADDR_8: mtimecmp[31:0] <= x[rs2_reg];
+                  `MTIMECMP_H_ADDR_8: mtimecmp[63:32] <= x[rs2_reg];
+                  `MTIME_ADDR_8: mtime[31:0] <= x[rs2_reg];
+                  `MTIME_H_ADDR_8: mtime[63:32] <= x[rs2_reg];
+                  default: begin
                   end
                 endcase
               end
               `OP_S: begin
-                unique case (s_addr_reg)
-                  // memory mapped registers
-                  `MTIMECMP_ADDR: mtimecmp[31:0] <= x[rs2_reg];
-                  `MTIMECMP_H_ADDR: mtimecmp[63:32] <= x[rs2_reg];
-                  `MTIME_ADDR: mtime[31:0] <= x[rs2_reg];
-                  `MTIME_H_ADDR: mtime[63:32] <= x[rs2_reg];
+                data_addr_strobe_o <= '1;
+                full_addr_o <= s_addr_reg;
+                wr_o <= '1;
 
-                  default: begin  // regular store
-                    data_addr_strobe_o <= '1;
-                    full_addr_o <= s_addr_reg;
-                    wr_o <= '1;
-
-                    unique case (f3_reg)
-                      `F3_SB: begin
-                        unique case (s_addr_reg[1:0])
-                          2'b00: begin
-                            wdata_o   <= {24'b0, x[rs2_reg][7:0]};
-                            byte_en_o <= 4'b0001;
-                          end
-                          2'b01: begin
-                            wdata_o   <= {16'b0, x[rs2_reg][7:0], 8'b0};
-                            byte_en_o <= 4'b0010;
-                          end
-                          2'b10: begin
-                            wdata_o   <= {8'b0, x[rs2_reg][7:0], 16'b0};
-                            byte_en_o <= 4'b0100;
-                          end
-                          2'b11: begin
-                            wdata_o   <= {x[rs2_reg][7:0], 24'b0};
-                            byte_en_o <= 4'b1000;
-                          end
-                          default: ;
-                        endcase
+                unique case (f3_reg)
+                  `F3_SB: begin
+                    unique case (s_addr_reg[1:0])
+                      2'b00: begin
+                        wdata_o   <= {24'b0, x[rs2_reg][7:0]};
+                        byte_en_o <= 4'b0001;
                       end
-                      `F3_SH: begin
-                        unique case (s_addr_reg[1:0])
-                          2'b00: begin
-                            wdata_o   <= {16'b0, x[rs2_reg][15:0]};
-                            byte_en_o <= 4'b0011;
-                          end
-                          2'b01: begin
-                            wdata_o   <= {8'b0, x[rs2_reg][15:0], 8'b0};
-                            byte_en_o <= 4'b0110;
-                          end
-                          2'b10: begin
-                            wdata_o   <= {x[rs2_reg][15:0], 16'b0};
-                            byte_en_o <= 4'b1100;
-                          end
-                          2'b11: begin
-`ifdef VSIM
-                            assert (0 && |"Illegal SH");
-`endif
-                            wdata_o   <= '0;
-                            byte_en_o <= 4'b0000;
-                          end
-                          default: ;
-                        endcase
+                      2'b01: begin
+                        wdata_o   <= {16'b0, x[rs2_reg][7:0], 8'b0};
+                        byte_en_o <= 4'b0010;
                       end
-                      `F3_SW: begin
-                        wdata_o <= x[rs2_reg];
+                      2'b10: begin
+                        wdata_o   <= {8'b0, x[rs2_reg][7:0], 16'b0};
+                        byte_en_o <= 4'b0100;
                       end
-                      default: begin
+                      2'b11: begin
+                        wdata_o   <= {x[rs2_reg][7:0], 24'b0};
+                        byte_en_o <= 4'b1000;
                       end
-                    endcase  // OP_S f3
+                      default: ;
+                    endcase
                   end
-                endcase
+                  `F3_SH: begin
+                    unique case (s_addr_reg[1:0])
+                      2'b00: begin
+                        wdata_o   <= {16'b0, x[rs2_reg][15:0]};
+                        byte_en_o <= 4'b0011;
+                      end
+                      2'b01: begin
+                        wdata_o   <= {8'b0, x[rs2_reg][15:0], 8'b0};
+                        byte_en_o <= 4'b0110;
+                      end
+                      2'b10: begin
+                        wdata_o   <= {x[rs2_reg][15:0], 16'b0};
+                        byte_en_o <= 4'b1100;
+                      end
+                      2'b11: begin
+`ifdef VSIM
+                        assert (0 && |"Illegal SH");
+`endif
+                        wdata_o   <= '0;
+                        byte_en_o <= 4'b0000;
+                      end
+                      default: ;
+                    endcase
+                  end
+                  `F3_SW: begin
+                    wdata_o <= x[rs2_reg];
+                  end
+                  default: begin
+                  end
+                endcase  // OP_S f3
               end
               `OP_RI: begin
                 x[rd_reg] <= x_rd;

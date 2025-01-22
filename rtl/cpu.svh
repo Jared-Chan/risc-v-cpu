@@ -10,6 +10,11 @@
 `define OP_F 7'b0001111 // fence
 `define OP_SYS 7'b1110011 // system
 
+// Custom values for loading and storing
+// memory-mapped registers
+`define OP_L_MREG 7'b0001011
+`define OP_S_MREG 7'b0101011
+
 `define F3_BEQ 3'b000
 `define F3_BNE 3'b001
 `define F3_BLT 3'b100
