@@ -126,7 +126,7 @@ int main( void )
                                 "example2",
                                 configMINIMAL_STACK_SIZE,
                                 NULL,
-                                configMAX_PRIORITIES - 1U,
+                                configMAX_PRIORITIES - 2U,
                                 &( exampleTaskStack2[ 0 ] ),
                                 &( exampleTaskTCB2 ) );
 

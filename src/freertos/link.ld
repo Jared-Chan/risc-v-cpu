@@ -22,10 +22,10 @@ SECTIONS
   .stack :
   {
     . = ALIGN(16);
-    . += ORIGIN(ram) + LENGTH(ram) - .;
+    . = ORIGIN(ram) + LENGTH(ram);
     _stack_top = .;
   } > ram
   PROVIDE ( _stack = _stack_top );
-  PROVIDE ( __freertos_irq_stack_top = _stack );
+  PROVIDE ( __freertos_irq_stack_top = _stack_top );
 }
 

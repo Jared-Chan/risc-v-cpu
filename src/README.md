@@ -97,7 +97,7 @@ Correct operation validated. See README.md for run and reporting rules.
 
 ## freertos
 
-A simple FreeRTOS program that runs two non-returning tasks that prints to UART at different delays.
+A simple FreeRTOS program that runs two non-returning tasks that print to UART at different delays.
 
 Modify `rtl/config.svh` such that this is defined
 ```verilog
