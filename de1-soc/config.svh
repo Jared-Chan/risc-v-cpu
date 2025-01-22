@@ -10,14 +10,15 @@
 
 `define UART_BAUD_RATE 115200
 
-//`define DEBUG
-// `define VSIM
-
-//`define MEM_INIT_FILE "coremark.mem"
-//`define MEM_INIT_FILE "helloworld.mem"
-//`define MEM_INIT_FILE "shell.mem"
-
-//`define MEM_LEN_KB 4
+`define MREG_PREFIX 8'hFF
+`define MTIME_ADDR 32'hFFFF_FFF0
+`define MTIME_H_ADDR 32'hFFFF_FFF4
+`define MTIMECMP_ADDR 32'hFFFF_FF00
+`define MTIMECMP_H_ADDR 32'hFFFF_FF04
+`define MTIME_ADDR_8 8'hF0
+`define MTIME_H_ADDR_8 8'hF4
+`define MTIMECMP_ADDR_8 8'h00
+`define MTIMECMP_H_ADDR_8 8'h04
 
 `define QUARTUS
 
