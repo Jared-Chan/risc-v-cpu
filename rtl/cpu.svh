@@ -42,6 +42,11 @@
 `define F3_CSRRWI 3'b101
 `define F3_CSRRSI 3'b110
 `define F3_CSRRCI 3'b111
+`define F3_PRIV 3'b000
+
+`define F12_MRET 12'b001100000010
+`define F12_ECALL 12'b000000000000
+`define F12_EBREAK 12'b000000000001
 
 `define F7_ADD 7'b0
 `define F7_SUB 7'b0100000
@@ -55,8 +60,79 @@
 `define CSR_INSTRET 12'hC02
 `define CSR_INSTRET_H 12'hC82
 
+`define CSR_MISA 12'h301
+`define MISA_RV32I 26'b1_0000_0000
+`define MISA_MXL 2'b01
 
-`ifdef DEBUG
+`define CSR_MSTATUS 12'h300
+`define CSR_MSTATUS_H 12'h310
+`define MSTATUS_BITS_WPRI_0 0
+`define MSTATUS_BITS_SIE 1
+`define MSTATUS_BITS_WPRI_1 2
+`define MSTATUS_BITS_MIE 3
+`define MSTATUS_BITS_WPRI_2 4
+`define MSTATUS_BITS_SPIE 5
+`define MSTATUS_BITS_UBE 6
+`define MSTATUS_BITS_MPIE 7
+`define MSTATUS_BITS_SPP 8
+`define MSTATUS_BITS_VS 10:9
+`define MSTATUS_BITS_MPP 12:11
+`define MSTATUS_BITS_FS 14:13
+`define MSTATUS_BITS_XS 16:15
+`define MSTATUS_BITS_MPRV 17
+`define MSTATUS_BITS_SUM 18
+`define MSTATUS_BITS_MXR 19
+`define MSTATUS_BITS_TVM 20
+`define MSTATUS_BITS_TW 21
+`define MSTATUS_BITS_TSR 22
+`define MSTATUS_BITS_WPRI_3 30:23
+`define MSTATUS_BITS_SD 31
+`define MSTATUS_H_BITS_WPRI_0 3:0
+`define MSTATUS_H_BITS_SBE 4
+`define MSTATUS_H_BITS_MBE 5
+`define MSTATUS_H_BITS_WPRI_1 31:6
+
+`define CSR_MIE 12'h304
+`define MIE_BITS_MEIE 11
+`define MIE_BITS_MTIE 7
+`define MIE_BITS_MSIE 3
+`define MIE_BITS_SEIE 9
+`define MIE_BITS_STIE 5
+`define MIE_BITS_SSIE 1
+`define MIE_BITS_LCOFIE 13
+
+`define CSR_MTVEC 12'h305
+`define MTVEC_BITS_BASE 31:2
+`define MTVEC_BITS_MODE 1:0
+
+`define CSR_MSCRATCH 12'h340
+`define CSR_MEPC 12'h341
+
+`define CSR_MCAUSE 12'h342
+`define MCAUSE_BITS_INTERRUPT 31
+`define MCAUSE_BITS_EXCEPTION_CODE 30:0
+`define EXCEPTION_CODE_M_TIMER 32'h7
+`define E_CODE_M_ECALL 32'd11
+`define E_CODE_EBREAK 32'd3
+
+`define CSR_MTVAL 12'h343
+
+`define CSR_MIP 12'h344
+`define MIP_BITS_MEIP 11
+`define MIP_BITS_MTIP 7
+`define MIP_BITS_MSIP 3
+`define MIP_BITS_SEIP 9
+`define MIP_BITS_STIP 5
+`define MIP_BITS_SSIP 1
+`define MIP_BITS_LCOFIP 13
+
+`define CSR_MVENDORID 12'hF11
+`define CSR_MARCHID 12'hF12
+`define CSR_MIMPID 12'hF13
+`define CSR_MHARTID 12'hF14
+`define CSR_MCONFIGPTR 12'hF15
+
+
 `define PRINT_R_TYPE $display(\
 "R type: dec_pc=0x%0h rs1=0x%0h rs2=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h",\
 dec_pc, rs1, rs2, rd, f7, f3);
@@ -96,22 +172,7 @@ dec_pc, rd, j_imm);
 "JALR: dec_pc=0x%0h rs1=0x%0h imm=0x%0h rd=0x%0h f7=0x%0h f3=0x%0h smt=0x%0h", \
 dec_pc, rs1, i_imm, rd, i_f7, f3, i_shamt);
 `define TRACE $display(\
-"time=%0t \x1B[32mTRACE BEFORE\033[0m opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h x_rs1=0x%8h x_rs2=0x%8h rs1_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h time_cnt=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h", $time, opcode, dec_pc, branch_dest, auipc_result, x_rs1, x_rs2, rs1_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, time_cnt, clk_cnt, instret, byte_en_o, x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H]);\
+"\n BEFORE opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h rs1_reg=0x%8h rs2_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h s_imm_reg=0x%8h i_imm_reg=0x%8h j_imm_reg=0x%8h i_shamt_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h mtime=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h csr[MISA]=0x%8h csr[MIP]=0x%8h csr[MIE]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MIE]=0x%8h csr[MCAUSE]=0x%8h mtimecmp=0x%8h csr[MIP][`MIP_BITS_MTIP]=0x%8h csr[MCAUSE][`MCAUSE_BITS_INTERRUPT]=0x%8h csr[MEPC]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MPIE]=0x%8h csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE]=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h mtimecmp[31:0]=0x%8h mtimecmp[63:32]=0x%8h mtime[31:0]=0x%8h mtime[63:32]=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MPRV]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MXR]=0x%8h csr[MSTATUS][`MSTATUS_BITS_SUM]=0x%8h csr[MSTATUS][`MSTATUS_BITS_UBE]=0x%8h csr[MSTATUS_H][`MSTATUS_H_BITS_SBE]=0x%8h csr[MSTATUS_H][`MSTATUS_H_BITS_MBE]=0x%8h csr[MSTATUS][`MSTATUS_BITS_TW]=0x%8h csr[MSTATUS][`MSTATUS_BITS_TSR]=0x%8h csr[MSTATUS][`MSTATUS_BITS_FS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_VS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_XS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_SD]=0x%8h csr[MIE][`MIE_BITS_SEIE]=0x%8h csr[MIE][`MIE_BITS_STIE]=0x%8h csr[MIE][`MIE_BITS_SSIE]=0x%8h csr[MIE][`MIE_BITS_LCOFIE]=0x%8h csr[MIP][`MIP_BITS_SEIP]=0x%8h csr[MIP][`MIP_BITS_STIP]=0x%8h csr[MIP][`MIP_BITS_SSIP]=0x%8h csr[MIP][`MIP_BITS_LCOFIP]=0x%8h csr[XIMPL]=0x%8h debug_counter=0x%8h", opcode, dec_pc, branch_dest, auipc_result, rs1_reg, rs2_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, s_imm_reg, i_imm_reg, j_imm_reg, i_shamt_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, mtime, clk_cnt, instret, byte_en_o, csr[MISA], csr[MIP], csr[MIE], csr[MSTATUS][`MSTATUS_BITS_MIE], csr[MCAUSE], mtimecmp, csr[MIP][`MIP_BITS_MTIP], csr[MCAUSE][`MCAUSE_BITS_INTERRUPT], csr[MEPC], csr[MSTATUS][`MSTATUS_BITS_MPIE], csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE], x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, mtimecmp[31:0], mtimecmp[63:32], mtime[31:0], mtime[63:32], wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H], csr[MSTATUS][`MSTATUS_BITS_MPRV], csr[MSTATUS][`MSTATUS_BITS_MXR], csr[MSTATUS][`MSTATUS_BITS_SUM], csr[MSTATUS][`MSTATUS_BITS_UBE], csr[MSTATUS_H][`MSTATUS_H_BITS_SBE], csr[MSTATUS_H][`MSTATUS_H_BITS_MBE], csr[MSTATUS][`MSTATUS_BITS_TW], csr[MSTATUS][`MSTATUS_BITS_TSR], csr[MSTATUS][`MSTATUS_BITS_FS], csr[MSTATUS][`MSTATUS_BITS_VS], csr[MSTATUS][`MSTATUS_BITS_XS], csr[MSTATUS][`MSTATUS_BITS_SD], csr[MIE][`MIE_BITS_SEIE], csr[MIE][`MIE_BITS_STIE], csr[MIE][`MIE_BITS_SSIE], csr[MIE][`MIE_BITS_LCOFIE], csr[MIP][`MIP_BITS_SEIP], csr[MIP][`MIP_BITS_STIP], csr[MIP][`MIP_BITS_SSIP], csr[MIP][`MIP_BITS_LCOFIP], csr[XIMPL], debug_counter);\
 $strobe(\
-"time=%0t \x1B[32mTRACE AFTER\033[0m opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h x_rs1=0x%8h x_rs2=0x%8h rs1_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h time_cnt=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h", $time, opcode, dec_pc, branch_dest, auipc_result, x_rs1, x_rs2, rs1_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, time_cnt, clk_cnt, instret, byte_en_o, x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H]);
-`else
-`define PRINT_R_TYPE
-`define PRINT_I_TYPE
-`define PRINT_I_TYPE_2
-`define PRINT_S_TYPE
-`define PRINT_S_TYPE_2
-`define PRINT_B_TYPE
-`define PRINT_U_TYPE
-`define PRINT_J_TYPE
-`define PRINT_X
-`define PRINT_STEP
-`define PRINT_JAL
-`define PRINT_JALR
-`define TRACE
-`endif
+" AFTER opcode=0x%8h dec_pc=0x%8h branch_dest=0x%8h auipc_result=0x%8h rs1_reg=0x%8h rs2_reg=0x%8h rd_reg=0x%8h f7_reg=0x%8h f3_reg=0x%8h u_imm_reg=0x%8h s_imm_reg=0x%8h i_imm_reg=0x%8h j_imm_reg=0x%8h i_shamt_reg=0x%8h j_rd=0x%8h j_dest=0x%8h load_addr=0x%8h s_addr_reg=0x%8h alu_operand_1=0x%8h alu_operand_2=0x%8h comp_operand_1=0x%8h comp_operand_2=0x%8h csr_src_dest=0x%8h csr_idx=0x%8h csr_read_only=0x%8h state=0x%8h pc=0x%8h do_decode=0x%8h wr_o=0x%8h data_addr_strobe_o=0x%8h cycle=0x%8h mtime=0x%8h clk_cnt=0x%8h instret=0x%8h byte_en_o=0x%8h csr[MISA]=0x%8h csr[MIP]=0x%8h csr[MIE]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MIE]=0x%8h csr[MCAUSE]=0x%8h mtimecmp=0x%8h csr[MIP][`MIP_BITS_MTIP]=0x%8h csr[MCAUSE][`MCAUSE_BITS_INTERRUPT]=0x%8h csr[MEPC]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MPIE]=0x%8h csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE]=0x%8h x[rd_reg]=0x%8h full_addr_o=0x%8h ex_opcode=0x%8h ex_f3=0x%8h ex_rd=0x%8h mtimecmp[31:0]=0x%8h mtimecmp[63:32]=0x%8h mtime[31:0]=0x%8h mtime[63:32]=0x%8h wdata_o=0x%8h csr[csr_idx]=0x%8h x[ex_rd]=0x%8h x[0]=0x%8h csr[CYCLE]=0x%8h csr[CYCLE_H]=0x%8h csr[TIME]=0x%8h csr[TIME_H]=0x%8h csr[INSTRET]=0x%8h csr[INSTRET_H]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MPRV]=0x%8h csr[MSTATUS][`MSTATUS_BITS_MXR]=0x%8h csr[MSTATUS][`MSTATUS_BITS_SUM]=0x%8h csr[MSTATUS][`MSTATUS_BITS_UBE]=0x%8h csr[MSTATUS_H][`MSTATUS_H_BITS_SBE]=0x%8h csr[MSTATUS_H][`MSTATUS_H_BITS_MBE]=0x%8h csr[MSTATUS][`MSTATUS_BITS_TW]=0x%8h csr[MSTATUS][`MSTATUS_BITS_TSR]=0x%8h csr[MSTATUS][`MSTATUS_BITS_FS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_VS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_XS]=0x%8h csr[MSTATUS][`MSTATUS_BITS_SD]=0x%8h csr[MIE][`MIE_BITS_SEIE]=0x%8h csr[MIE][`MIE_BITS_STIE]=0x%8h csr[MIE][`MIE_BITS_SSIE]=0x%8h csr[MIE][`MIE_BITS_LCOFIE]=0x%8h csr[MIP][`MIP_BITS_SEIP]=0x%8h csr[MIP][`MIP_BITS_STIP]=0x%8h csr[MIP][`MIP_BITS_SSIP]=0x%8h csr[MIP][`MIP_BITS_LCOFIP]=0x%8h csr[XIMPL]=0x%8h debug_counter=0x%8h", opcode, dec_pc, branch_dest, auipc_result, rs1_reg, rs2_reg, rd_reg, f7_reg, f3_reg, u_imm_reg, s_imm_reg, i_imm_reg, j_imm_reg, i_shamt_reg, j_rd, j_dest, load_addr, s_addr_reg, alu_operand_1, alu_operand_2, comp_operand_1, comp_operand_2, csr_src_dest, csr_idx, csr_read_only, state, pc, do_decode, wr_o, data_addr_strobe_o, cycle, mtime, clk_cnt, instret, byte_en_o, csr[MISA], csr[MIP], csr[MIE], csr[MSTATUS][`MSTATUS_BITS_MIE], csr[MCAUSE], mtimecmp, csr[MIP][`MIP_BITS_MTIP], csr[MCAUSE][`MCAUSE_BITS_INTERRUPT], csr[MEPC], csr[MSTATUS][`MSTATUS_BITS_MPIE], csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE], x[rd_reg], full_addr_o, ex_opcode, ex_f3, ex_rd, mtimecmp[31:0], mtimecmp[63:32], mtime[31:0], mtime[63:32], wdata_o, csr[csr_idx], x[ex_rd], x[0], csr[CYCLE], csr[CYCLE_H], csr[TIME], csr[TIME_H], csr[INSTRET], csr[INSTRET_H], csr[MSTATUS][`MSTATUS_BITS_MPRV], csr[MSTATUS][`MSTATUS_BITS_MXR], csr[MSTATUS][`MSTATUS_BITS_SUM], csr[MSTATUS][`MSTATUS_BITS_UBE], csr[MSTATUS_H][`MSTATUS_H_BITS_SBE], csr[MSTATUS_H][`MSTATUS_H_BITS_MBE], csr[MSTATUS][`MSTATUS_BITS_TW], csr[MSTATUS][`MSTATUS_BITS_TSR], csr[MSTATUS][`MSTATUS_BITS_FS], csr[MSTATUS][`MSTATUS_BITS_VS], csr[MSTATUS][`MSTATUS_BITS_XS], csr[MSTATUS][`MSTATUS_BITS_SD], csr[MIE][`MIE_BITS_SEIE], csr[MIE][`MIE_BITS_STIE], csr[MIE][`MIE_BITS_SSIE], csr[MIE][`MIE_BITS_LCOFIE], csr[MIP][`MIP_BITS_SEIP], csr[MIP][`MIP_BITS_STIP], csr[MIP][`MIP_BITS_SSIP], csr[MIP][`MIP_BITS_LCOFIP], csr[XIMPL], debug_counter);
 

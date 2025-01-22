@@ -10,8 +10,10 @@
 ## Current status
 
 Summary
-* functional coverage: >95%
-* `FENCE`, `ECALL`, and `EBREAK` aren't implemented
+* unprivileged architecture:
+    * functional coverage: >95%
+    * `FENCE`, `ECALL`, and `EBREAK` aren't implemented
+* there is no verfication for the privileged architecture yet
 
 Details: [coverage results](./coverage_results.xml)
 
@@ -111,8 +113,8 @@ It contains the following analysis port
     * receives all transactions at the CPU interface
     * when `rst_n` is active, checks `iaddr`
 
-#### Assertions
-Assertions aren't used.
+<!--#### Assertions-->
+<!--Assertions aren't used.-->
 
 ## Building and running tests
 
@@ -129,7 +131,7 @@ $ ./cpu_sim
 
 ## Testplan
 
-All instructions in the RV32I base standard and the "Zicsr" and "Zicntr" extensions should be supported.
+All instructions in the unprivileged RV32I base standard and the "Zicsr" and "Zicntr" extensions should be supported.
 
 ### Tests
 

@@ -6,11 +6,9 @@
 
 A simple shell that can dump memory and display the cycle count, time, or number of retired instructions.
 
-Modify `rtl/config.svh` such that these are defined
+Modify `rtl/config.svh` such that this is defined
 ```verilog
-`define VSIM
-`define MEM_INIT_FILE "shell.mem"
-`define MEM_LEN_KB 4
+`define SHELL_SIM
 ```
 
 Running in simulation
@@ -37,11 +35,9 @@ Instructions retired: 26669295
 
 Prints `Hello world!` over UART.
 
-Modify `rtl/config.svh` such that these are defined
+Modify `rtl/config.svh` such that this is defined
 ```verilog
-`define VSIM
-`define MEM_INIT_FILE "helloworld.mem"
-`define MEM_LEN_KB 4
+`define HELLOWORLD_SIM
 ```
 
 Running in simulation
@@ -58,11 +54,9 @@ Output is printed to `mock_uart_output.txt`.
 
 Runs [CoreMark](https://github.com/eembc/coremark/tree/main).
 
-Modify `rtl/config.svh` such that these are defined
+Modify `rtl/config.svh` such that this is defined
 ```verilog
-`define VSIM
-`define MEM_INIT_FILE "coremark.mem"
-`define MEM_LEN_KB 32
+`define COREMARK_SIM
 ```
 
 Modify `CC_FLAGS` in `src/coremark/Makefile` to select run type, iterations, and optimization level.
@@ -100,6 +94,25 @@ seedcrc          : 0xe9f5
 [0]crcfinal      : 0x382f
 Correct operation validated. See README.md for run and reporting rules.
 ```
+
+## freertos
+
+A simple FreeRTOS program that runs two non-returning tasks that prints to UART at different delays.
+
+Modify `rtl/config.svh` such that this is defined
+```verilog
+`define RTOS_EXAMPLE_SIM
+```
+
+Running in simulation
+```sh
+cd src/freertos
+make
+cd ../..
+make -f SimMakefile
+```
+
+Output is printed to `mock_uart_output.txt`.
 
 ## Compilation requirements
 

@@ -1,6 +1,10 @@
 # RISC-V CPU
 
-A simple 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicntr" extension and partially supports the "Zicsr" extension.
+A simple 32-bit RISC-V CPU core that supports 
+* the RV32I Base Integer Instruction Set
+* the "Zicntr" extension
+* some of the "Zicsr" extension, including `cycle`, `time` and `instret`
+* some of the privileged instruction set like timer interrupts and exceptions
 
 The design is written in SystemVerilog. Design verification is done using UVM-SystemC, with Verilator as the simulator, CRAVE as the constrained randomization environment, and FC4SC as the functional coverage collector.
 
@@ -8,7 +12,9 @@ The design is written in SystemVerilog. Design verification is done using UVM-Sy
 
 [Design verification document](./doc/dv_doc.md)
 
-Applications have been successfully run on a softcore CPU in an FPGA and in a verilator simulation with an emulated UART interface.
+Applications have been successfully run on a softcore CPU in an FPGA and in a verilator simulation with an emulated UART interface. They include
+* CoreMark
+* a simple FreeRTOS program
 
 ## Repository structure
 
@@ -32,6 +38,7 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
     * `helloworld/`: simple app that prints using UART
     * `coremark/`: CoreMark
     * `shell/`: simple interactive shell
+    * `freertos/`: simple FreeRTOS program
     * `util.h`, `util.c`: utilities for UART control and CSR reading
     * `create_mif`: script to create memory initialization files `.mif` from `hexdump` output
     * [Details](./src/README.md)

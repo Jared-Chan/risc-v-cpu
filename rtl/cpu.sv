@@ -42,15 +42,27 @@ module cpu #(
     TIME_H,
     INSTRET,
     INSTRET_H,
-    XSUPPORT    // unsupported CSR
+    MISA,
+    MSTATUS,
+    MSTATUS_H,
+    MTVEC,
+    MIE,
+    MIP,
+    MSCRATCH,
+    MEPC,
+    MCAUSE,
+    MTVAL,
+    XIMPL,  // 0 is returned
+    XSUPPORT  // unsupported CSR
   } csr_e;
 
   // Control and Status Registers
-  logic [`XLEN-1:0] csr[6];
+  logic [`XLEN-1:0] csr[18];
+  logic [63:0] mtime;
+  logic [63:0] mtimecmp;
 
   // Cycle and Time counters
   logic [63:0] cycle;
-  logic [63:0] time_cnt;
   logic [31:0] clk_cnt;
   // Instructions retired
   logic [63:0] instret;
@@ -152,7 +164,6 @@ module cpu #(
   always_ff @(posedge clk, negedge rst_n) begin : decode
     if (!rst_n) opcode <= 7'b0;
     else if (do_decode) begin
-      `TRACE
       // pc is the pc of the next instruction
       // pc - 4 is the pc of the instruction being decoded
       dec_pc <= pc - 4;
@@ -193,6 +204,21 @@ module cpu #(
         `CSR_TIME_H: csr_idx <= TIME_H;
         `CSR_INSTRET: csr_idx <= INSTRET;
         `CSR_INSTRET_H: csr_idx <= INSTRET_H;
+        `CSR_MISA: csr_idx <= MISA;
+        `CSR_MSTATUS: csr_idx <= MSTATUS;
+        `CSR_MSTATUS_H: csr_idx <= MSTATUS_H;
+        `CSR_MTVEC: csr_idx <= MTVEC;
+        `CSR_MIE: csr_idx <= MIE;
+        `CSR_MIP: csr_idx <= MIP;
+        `CSR_MSCRATCH: csr_idx <= MSCRATCH;
+        `CSR_MEPC: csr_idx <= MEPC;
+        `CSR_MCAUSE: csr_idx <= MCAUSE;
+        `CSR_MTVAL: csr_idx <= MTVAL;
+        `CSR_MVENDORID: csr_idx <= XIMPL;
+        `CSR_MARCHID: csr_idx <= XIMPL;
+        `CSR_MIMPID: csr_idx <= XIMPL;
+        `CSR_MHARTID: csr_idx <= XIMPL;  // single-core, so 0
+        `CSR_MCONFIGPTR: csr_idx <= XIMPL;
         default: csr_idx <= XSUPPORT;
       endcase
       csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
@@ -308,7 +334,7 @@ module cpu #(
   logic signed [31:0] x_rd_s;
   assign x_rd_s = x_rd;
   always_comb begin
-    x_rd = '0; // Default
+    x_rd = '0;  // Default
     unique case (state)
       EXECUTE: begin
         unique case (opcode)
@@ -450,10 +476,19 @@ module cpu #(
       wr_o <= '0;
       data_addr_strobe_o <= '0;
       cycle <= '0;
-      time_cnt <= '0;
+      mtime <= '0;
       clk_cnt <= '0;
       instret <= '0;
       byte_en_o <= 4'b1111;
+
+      csr[MISA] <= {`MISA_MXL, 4'b0, `MISA_RV32I};
+      csr[MIP] <= '0;
+      csr[MIE] <= '0;
+      csr[MSTATUS][`MSTATUS_BITS_MIE] <= 1'b0;
+      csr[MCAUSE] <= '0;  // do not distinguish reset conditions
+      // no MPRV
+      // MBE is always 0
+      mtimecmp <= '1;
     end else begin
 
       pc <= pc + 32'h4;
@@ -466,205 +501,334 @@ module cpu #(
       cycle <= cycle + 1'b1;
       clk_cnt <= clk_cnt + 1'b1;
       if (CyclesPerUS > 0 && clk_cnt == CyclesPerUS - 1) begin
-        clk_cnt  <= '0;
-        time_cnt <= time_cnt + 1'b1;
+        clk_cnt <= '0;
+        mtime   <= mtime + 1'b1;
       end
       if (CyclesPerUS == 0 && USPerCycle > 0) begin
-        time_cnt <= time_cnt + {32'b0, USPerCycle};
+        mtime <= mtime + {32'b0, USPerCycle};
       end
       // end: cycle, time, and instret
 
-      unique case (state)
-        EXECUTE: begin
-          instret <= instret + 1'b1;
-          unique case (opcode)
-            `OP_LUI: begin
-              x[rd_reg] <= x_rd;
-            end
-            `OP_AUIPC: begin
-              x[rd_reg] <= x_rd;
-            end
-            `OP_JAL: begin
-              x[rd_reg] <= x_rd;
-              pc <= j_dest;
-              do_decode <= '0;
-              state <= WAIT_PC;
-              // else pc = pc + 4 is valid
-              // should check addr alignment
-            end
-            `OP_JALR: begin
-              x[rd_reg] <= x_rd;
-              // should check addr alignment
-              pc <= j_dest;
-              do_decode <= '0;
-              state <= WAIT_PC;
-            end
-            `OP_B: begin
-              if (comp_result) begin
-                pc <= branch_dest;
+      // begin: interrupt
+      // set interrupt pending
+      if (mtime > mtimecmp) csr[MIP][`MIP_BITS_MTIP] <= 1'b1;
+      else csr[MIP][`MIP_BITS_MTIP] <= 1'b0;
+      // handle pending interrupts
+      if (csr[MSTATUS][`MSTATUS_BITS_MIE] && (csr[MIE] & csr[MIP]) > 0) begin
+        csr[MCAUSE][`MCAUSE_BITS_INTERRUPT] <= 1'b1;
+        csr[MEPC] <= dec_pc;
+        state <= WAIT_PC;
+        do_decode <= '0;
+        csr[MSTATUS][`MSTATUS_BITS_MIE] <= 1'b0;
+        csr[MSTATUS][`MSTATUS_BITS_MPIE] <= csr[MSTATUS][`MSTATUS_BITS_MIE];
+        // no setting MPP since only M-mode is supported
+        if (csr[MIE][`MIE_BITS_MEIE] & csr[MIP][`MIP_BITS_MEIP]) begin
+`ifdef VSIM
+          assert (0 && |"MEIE not implemented");
+`endif
+        end else if (csr[MIE][`MIE_BITS_MSIE] & csr[MIP][`MIP_BITS_MSIP]) begin
+`ifdef VSIM
+          assert (0 && |"MSIE not implemented");
+`endif
+        end else if (csr[MIE][`MIE_BITS_MTIE] & csr[MIP][`MIP_BITS_MTIP]) begin
+          csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `EXCEPTION_CODE_M_TIMER;
+          if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0) pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
+          else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`EXCEPTION_CODE_M_TIMER << 2);
+        end
+      end  // end: interrupt
+      else begin  // no pending interrupt to handle
+        unique case (state)
+          EXECUTE: begin
+            instret <= instret + 1'b1;
+            unique case (opcode)
+              `OP_LUI: begin
+                x[rd_reg] <= x_rd;
+              end
+              `OP_AUIPC: begin
+                x[rd_reg] <= x_rd;
+              end
+              `OP_JAL: begin
+                x[rd_reg] <= x_rd;
+                pc <= j_dest;
+                do_decode <= '0;
+                state <= WAIT_PC;
+                // else pc = pc + 4 is valid
+                // should check addr alignment
+              end
+              `OP_JALR: begin
+                x[rd_reg] <= x_rd;
+                // should check addr alignment
+                pc <= j_dest;
                 do_decode <= '0;
                 state <= WAIT_PC;
               end
-            end
-            `OP_L: begin
-              data_addr_strobe_o <= '1;
-              full_addr_o <= load_addr;
-              ex_opcode <= opcode;
-              ex_f3 <= f3_reg;
-              ex_rd <= rd_reg;
+              `OP_B: begin
+                if (comp_result) begin
+                  pc <= branch_dest;
+                  do_decode <= '0;
+                  state <= WAIT_PC;
+                end
+              end
+              `OP_L: begin
+                unique case (load_addr)
+                  // memory mapped registers
+                  `MTIMECMP_ADDR: x[rd_reg] <= mtimecmp[31:0];
+                  `MTIMECMP_H_ADDR: x[rd_reg] <= mtimecmp[63:32];
+                  `MTIME_ADDR: x[rd_reg] <= mtime[31:0];
+                  `MTIME_H_ADDR: x[rd_reg] <= mtime[63:32];
 
-              instret <= instret;
-              pc <= pc;
-              do_decode <= '0;
-              state <= WAIT_READ;
-            end
-            `OP_S: begin
-              data_addr_strobe_o <= '1;
-              full_addr_o <= s_addr_reg;
-              wr_o <= '1;
+                  default: begin  // regular load
+                    data_addr_strobe_o <= '1;
+                    full_addr_o <= load_addr;
+                    ex_opcode <= opcode;
+                    ex_f3 <= f3_reg;
+                    ex_rd <= rd_reg;
 
-              unique case (f3_reg)
-                `F3_SB: begin
-                  unique case (s_addr_reg[1:0])
-                    2'b00: begin
-                      wdata_o   <= {24'b0, x[rs2_reg][7:0]};
-                      byte_en_o <= 4'b0001;
-                    end
-                    2'b01: begin
-                      wdata_o   <= {16'b0, x[rs2_reg][7:0], 8'b0};
-                      byte_en_o <= 4'b0010;
-                    end
-                    2'b10: begin
-                      wdata_o   <= {8'b0, x[rs2_reg][7:0], 16'b0};
-                      byte_en_o <= 4'b0100;
-                    end
-                    2'b11: begin
-                      wdata_o   <= {x[rs2_reg][7:0], 24'b0};
-                      byte_en_o <= 4'b1000;
-                    end
-                    default: ;
-                  endcase
-                end
-                `F3_SH: begin
-                  unique case (s_addr_reg[1:0])
-                    2'b00: begin
-                      wdata_o   <= {16'b0, x[rs2_reg][15:0]};
-                      byte_en_o <= 4'b0011;
-                    end
-                    2'b01: begin
-                      wdata_o   <= {8'b0, x[rs2_reg][15:0], 8'b0};
-                      byte_en_o <= 4'b0110;
-                    end
-                    2'b10: begin
-                      wdata_o   <= {x[rs2_reg][15:0], 16'b0};
-                      byte_en_o <= 4'b1100;
-                    end
-                    2'b11: begin
+                    instret <= instret;
+                    pc <= pc;
+                    do_decode <= '0;
+                    state <= WAIT_READ;
+                  end
+                endcase
+              end
+              `OP_S: begin
+                unique case (s_addr_reg)
+                  // memory mapped registers
+                  `MTIMECMP_ADDR: mtimecmp[31:0] <= x[rs2_reg];
+                  `MTIMECMP_H_ADDR: mtimecmp[63:32] <= x[rs2_reg];
+                  `MTIME_ADDR: mtime[31:0] <= x[rs2_reg];
+                  `MTIME_H_ADDR: mtime[63:32] <= x[rs2_reg];
+
+                  default: begin  // regular store
+                    data_addr_strobe_o <= '1;
+                    full_addr_o <= s_addr_reg;
+                    wr_o <= '1;
+
+                    unique case (f3_reg)
+                      `F3_SB: begin
+                        unique case (s_addr_reg[1:0])
+                          2'b00: begin
+                            wdata_o   <= {24'b0, x[rs2_reg][7:0]};
+                            byte_en_o <= 4'b0001;
+                          end
+                          2'b01: begin
+                            wdata_o   <= {16'b0, x[rs2_reg][7:0], 8'b0};
+                            byte_en_o <= 4'b0010;
+                          end
+                          2'b10: begin
+                            wdata_o   <= {8'b0, x[rs2_reg][7:0], 16'b0};
+                            byte_en_o <= 4'b0100;
+                          end
+                          2'b11: begin
+                            wdata_o   <= {x[rs2_reg][7:0], 24'b0};
+                            byte_en_o <= 4'b1000;
+                          end
+                          default: ;
+                        endcase
+                      end
+                      `F3_SH: begin
+                        unique case (s_addr_reg[1:0])
+                          2'b00: begin
+                            wdata_o   <= {16'b0, x[rs2_reg][15:0]};
+                            byte_en_o <= 4'b0011;
+                          end
+                          2'b01: begin
+                            wdata_o   <= {8'b0, x[rs2_reg][15:0], 8'b0};
+                            byte_en_o <= 4'b0110;
+                          end
+                          2'b10: begin
+                            wdata_o   <= {x[rs2_reg][15:0], 16'b0};
+                            byte_en_o <= 4'b1100;
+                          end
+                          2'b11: begin
 `ifdef VSIM
-                      assert (0 && |"Illegal SH");
+                            assert (0 && |"Illegal SH");
 `endif
-                      wdata_o   <= '0;
-                      byte_en_o <= 4'b0000;
-                    end
-                    default: ;
-                  endcase
-                end
-                `F3_SW: begin
-                  wdata_o <= x[rs2_reg];
-                end
-                default: begin
-                end
-              endcase  // OP_S f3
-            end
-            `OP_RI: begin
-              x[rd_reg] <= x_rd;
-            end
-            `OP_RR: begin
-              x[rd_reg] <= x_rd;
-            end
-            `OP_F: begin
-            end
-            `OP_SYS: begin
+                            wdata_o   <= '0;
+                            byte_en_o <= 4'b0000;
+                          end
+                          default: ;
+                        endcase
+                      end
+                      `F3_SW: begin
+                        wdata_o <= x[rs2_reg];
+                      end
+                      default: begin
+                      end
+                    endcase  // OP_S f3
+                  end
+                endcase
+              end
+              `OP_RI: begin
+                x[rd_reg] <= x_rd;
+              end
+              `OP_RR: begin
+                x[rd_reg] <= x_rd;
+              end
+              `OP_F: begin
+              end
+              `OP_SYS: begin
 `ifdef VSIM
-              if (csr_idx == XSUPPORT) assert (0 && |"Accessing unsupported CSR");
+                if (csr_idx == XSUPPORT) assert (0 && |"Accessing unsupported CSR");
 `endif
-              unique case (f3_reg)
-                `F3_CSRRW: begin
-                  if (!csr_read_only) csr[csr_idx] <= x[rs1_reg];
-                  if (rd_reg != 0) x[rd_reg] <= x_rd;
-                end
-                `F3_CSRRS: begin
-                  x[rd_reg] <= x_rd;
-                  if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1_reg];
-                end
-                `F3_CSRRC: begin
-                  x[rd_reg] <= x_rd;
-                  if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~x[rs1_reg]);
-                end
-                `F3_CSRRWI: begin
-                  if (!csr_read_only) csr[csr_idx] <= csr_imm;
-                  if (rd_reg != 0) x[rd_reg] <= x_rd;
-                end
-                `F3_CSRRSI: begin
-                  x[rd_reg] <= x_rd;
-                  if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | csr_imm;
-                end
-                `F3_CSRRCI: begin
-                  x[rd_reg] <= x_rd;
-                  if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
-                end
-`ifdef VSIM
-                3'b000: begin
-                  $display("Finish with EBREAK/ECALL");
-                  $finish;
-                end
+                unique case (f3_reg)
+                  `F3_CSRRW: begin
+                    if (!csr_read_only) csr[csr_idx] <= x[rs1_reg];
+                    if (rd_reg != 0) x[rd_reg] <= x_rd;
+                  end
+                  `F3_CSRRS: begin
+                    x[rd_reg] <= x_rd;
+                    if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1_reg];
+                  end
+                  `F3_CSRRC: begin
+                    x[rd_reg] <= x_rd;
+                    if (rs1_reg != 0 && !csr_read_only)
+                      csr[csr_idx] <= csr[csr_idx] & (~x[rs1_reg]);
+                  end
+                  `F3_CSRRWI: begin
+                    if (!csr_read_only) csr[csr_idx] <= csr_imm;
+                    if (rd_reg != 0) x[rd_reg] <= x_rd;
+                  end
+                  `F3_CSRRSI: begin
+                    x[rd_reg] <= x_rd;
+                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | csr_imm;
+                  end
+                  `F3_CSRRCI: begin
+                    x[rd_reg] <= x_rd;
+                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
+                  end
+                  `F3_PRIV: begin
+                    unique case (i_imm_reg[11:0])
+                      `F12_MRET: begin
+                        pc <= csr[MEPC];
+                        state <= WAIT_PC;
+                        do_decode <= '0;
+                        csr[MSTATUS][`MSTATUS_BITS_MIE] <= csr[MSTATUS][`MSTATUS_BITS_MPIE];
+                      end
+`ifdef ENV_FINISH
+                      default: begin
+                        $display("Finish with EBREAK/ECALL");
+                        $finish;
+                      end
+`else
+                      `F12_ECALL: begin
+                        instret <= instret;
+                        csr[MCAUSE][`MCAUSE_BITS_INTERRUPT] <= 1'b0;
+                        csr[MEPC] <= dec_pc;
+                        state <= WAIT_PC;
+                        do_decode <= '0;
+                        csr[MSTATUS][`MSTATUS_BITS_MIE] <= 1'b0;
+                        csr[MSTATUS][`MSTATUS_BITS_MPIE] <= csr[MSTATUS][`MSTATUS_BITS_MIE];
+                        csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `E_CODE_M_ECALL;
+                        if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0)
+                          pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
+                        else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`E_CODE_M_ECALL << 2);
+                      end
+                      `F12_EBREAK: begin
+                        instret <= instret;
+                        csr[MCAUSE][`MCAUSE_BITS_INTERRUPT] <= 1'b0;
+                        csr[MEPC] <= dec_pc;
+                        state <= WAIT_PC;
+                        do_decode <= '0;
+                        csr[MSTATUS][`MSTATUS_BITS_MIE] <= 1'b0;
+                        csr[MSTATUS][`MSTATUS_BITS_MPIE] <= csr[MSTATUS][`MSTATUS_BITS_MIE];
+                        csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `E_CODE_EBREAK;
+                        if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0)
+                          pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
+                        else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`E_CODE_EBREAK << 2);
+                      end
+                      default: ;
 `endif
-                default: begin
-                end
-              endcase
-            end
-            default: begin
-              pc <= pc;
-            end
-          endcase  // opcode
-        end
-        WAIT_PC: begin
-          state <= WAIT_DECODE;
-        end
-        WAIT_DECODE: begin
-          state <= EXECUTE;
-        end
-        WAIT_READ: begin
-          pc <= pc;
-          do_decode <= '0;
-          state <= WAIT_L;
-        end
-        WAIT_L: begin
-          instret <= instret + 1'b1;
-          state <= EXECUTE;
-          //if (ex_opcode == `OP_L)
-          x[ex_rd] <= x_rd;
-          //end
-        end
-        default: begin
-        end
-      endcase  // state
+                    endcase
+                  end
+                  default: begin
+                  end
+                endcase
+              end
+              default: begin
+                pc <= pc;
+              end
+            endcase  // opcode
+          end
+          WAIT_PC: begin
+            state <= WAIT_DECODE;
+          end
+          WAIT_DECODE: begin
+            state <= EXECUTE;
+          end
+          WAIT_READ: begin
+            pc <= pc;
+            do_decode <= '0;
+            state <= WAIT_L;
+          end
+          WAIT_L: begin
+            instret <= instret + 1'b1;
+            state <= EXECUTE;
+            //if (ex_opcode == `OP_L)
+            x[ex_rd] <= x_rd;
+            //end
+          end
+          default: begin
+          end
+        endcase  // state
+      end
     end
     x[0] <= '0;  // hardwire to 0
+    // read-only csrs
     csr[CYCLE] <= cycle[31:0];
     csr[CYCLE_H] <= cycle[63:32];
-    csr[TIME] <= time_cnt[31:0];
-    csr[TIME_H] <= time_cnt[63:32];
+    csr[TIME] <= mtime[31:0];
+    csr[TIME_H] <= mtime[63:32];
     csr[INSTRET] <= instret[31:0];
     csr[INSTRET_H] <= instret[63:32];
+    // read-only 0 csrs
+    csr[MSTATUS][`MSTATUS_BITS_MPRV] <= 1'b0;  // U-mode not supported
+    csr[MSTATUS][`MSTATUS_BITS_MXR] <= 1'b0;  // S-mode not supported
+    csr[MSTATUS][`MSTATUS_BITS_SUM] <= 1'b0;  // S-mode not supported
+    csr[MSTATUS][`MSTATUS_BITS_UBE] <= 1'b0;  // U-mode not supported
+    csr[MSTATUS_H][`MSTATUS_H_BITS_SBE] <= 1'b0;  // S-mode not supported
+    csr[MSTATUS_H][`MSTATUS_H_BITS_MBE] <= 1'b0;  // Only little-endian
+    csr[MSTATUS][`MSTATUS_BITS_TW] <= 1'b0;  // U-mode and S-mode not supported
+    csr[MSTATUS][`MSTATUS_BITS_TSR] <= 1'b0;  // S-mode not supported
+    csr[MSTATUS][`MSTATUS_BITS_FS] <= 2'b0;  // extension not supported
+    csr[MSTATUS][`MSTATUS_BITS_VS] <= 2'b0;  // extension not supported
+    csr[MSTATUS][`MSTATUS_BITS_XS] <= 2'b0;  // extension not supported
+    csr[MSTATUS][`MSTATUS_BITS_SD] <= 1'b0;  // extension not supported
+    csr[MIE][`MIE_BITS_SEIE] <= 1'b0;  // S-mode not supported
+    csr[MIE][`MIE_BITS_STIE] <= 1'b0;  // S-mode not supported
+    csr[MIE][`MIE_BITS_SSIE] <= 1'b0;  // S-mode not supported
+    csr[MIE][`MIE_BITS_LCOFIE] <= 1'b0;  // Sscofpmf not supported
+    csr[MIP][`MIP_BITS_SEIP] <= 1'b0;  // S-mode not supported
+    csr[MIP][`MIP_BITS_STIP] <= 1'b0;  // S-mode not supported
+    csr[MIP][`MIP_BITS_SSIP] <= 1'b0;  // S-mode not supported
+    csr[MIP][`MIP_BITS_LCOFIP] <= 1'b0;  // Sscofpmf not supported
+    // warl csr
+    csr[MISA] <= {`MISA_MXL, 4'b0, `MISA_RV32I};
+    // 0 returned csr
+    csr[XIMPL] <= '0;
   end
 
+`ifdef DEBUG_HEARTBEAT
+  logic [63:0] debug_counter = 0;
+  always_ff @(posedge clk) begin
+    debug_counter <= debug_counter + 1'b1;
+    if (debug_counter % 10000000 == 0) begin
+      `TRACE
+    end
+    if (pc == csr[MTVEC] + 8) begin
+      // +8 or dec_pc would work too
+      $display("\n=============================\nTRAP!!!\n=============================\n");
+      `TRACE
+    end
+  end
+`endif
 
 `ifdef DEBUG
   always_ff @(posedge clk, negedge rst_n) begin : debug
     if (!rst_n) begin
     end else begin
       `PRINT_STEP
+      `TRACE
       unique case (state)
         EXECUTE: begin
           unique case (opcode)

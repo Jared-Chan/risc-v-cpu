@@ -4,13 +4,13 @@
 
 # Overview
 
-CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicntr" extension and partially supports the "Zicsr" extension.
+CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction Set and the "Zicntr" extension and partially supports the "Zicsr" extension and machine-level privileged ISA.
 
 ## Features
 
 * 2-stage pipeline
-* 32 registers
 * Cycle, time, and retired instruction counters
+* M-mode timer interrupts and exceptions
 
 <!--## Description-->
 <!---->
@@ -18,7 +18,19 @@ CPU is a 32-bit RISC-V CPU core that supports the RV32I Base Integer Instruction
 <!---->
 # Instruction Set
 
-The RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions. Only the `CYCLE`, `INSTRET` and `TIME` CSRs are supported.
+The RV32I Base Integer Instruction Set and the "Zicsr" and "Zicntr" extensions. The following CSRs are supported 
+* `CYCLE`
+* `INSTRET`
+* `TIME`
+* `MISA`
+* `MSTATUS`
+* `MTVEC`
+* `MIE`
+* `MIP`
+* `MSCRATCH`
+* `MEPC`
+* `MCAUSE`
+* `MTVAL`
 
 ## Processor State
 
@@ -53,7 +65,7 @@ CPU has one 32b wide program counter. CPU assumes `IALIGN=32`.
 ### Control and Status Registers (CSRs)
 
 Control and Status Registers (CSRs) are 32b wide registers for special purposes.
-The access to CSRs are defined in line with the "Zicsr" extension.
+The access to CSRs are defined in line with the "Zicsr" extension and privileged ISA.
 
 <table>
   <thead>
@@ -111,6 +123,138 @@ The access to CSRs are defined in line with the "Zicsr" extension.
       <td>INSTRET_H</td>
       <td>
       The upper 32 bits of the amount of instructions retired since an arbitrary start time in the past.
+      </td>
+    </tr>
+    <tr>
+      <td>0x301</td>
+      <td>WARL</td>
+      <td>MISA</td>
+      <td>
+      Supported ISA.
+      </td>
+    </tr>
+    <tr>
+      <td>0x300</td>
+      <td>WR</td>
+      <td>MSTATUS</td>
+      <td>
+      Operating state of the hart.
+      </td>
+    </tr>
+    <tr>
+      <td>0x310</td>
+      <td>WR</td>
+      <td>MSTATUS_H</td>
+      <td>
+      Operating state of the hart.
+      </td>
+    </tr>
+    <tr>
+      <td>0x305</td>
+      <td>WARL</td>
+      <td>MTVEC</td>
+      <td>
+      Trap vector configuration.
+      </td>
+    </tr>
+    <tr>
+      <td>0x304</td>
+      <td>WR</td>
+      <td>MIE</td>
+      <td>
+      Interrupt enable.
+      </td>
+    </tr>
+    <tr>
+      <td>0x344</td>
+      <td>WR</td>
+      <td>MIP</td>
+      <td>
+      Interrupt pending.
+      </td>
+    </tr>
+    <tr>
+      <td>0x340</td>
+      <td>WR</td>
+      <td>MSCRATCH</td>
+      <td>
+      Scratch.
+      </td>
+    </tr>
+    <tr>
+      <td>0x341</td>
+      <td>WR</td>
+      <td>MEPC</td>
+      <td>
+      Machine exception program counter.
+      </td>
+    </tr>
+    <tr>
+      <td>0x342</td>
+      <td>WR</td>
+      <td>MCAUSE</td>
+      <td>
+      Trap cause.
+      </td>
+    </tr>
+    <tr>
+      <td>0x343</td>
+      <td>WR</td>
+      <td>MTVAL</td>
+      <td>
+      Exception-specific information.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+### Memory-mapped Registers
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Name</th>
+      <th>Width</th>
+      <th>Access</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0xFFFF_FFF0</td>
+      <td>MTIME</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds.
+      </td>
+    </tr>
+    <tr>
+      <td>0xFFFF_FFF4</td>
+      <td>MTIME_H</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      The upper 32 bits of the time passed since an arbitrary start time in the past.
+      </td>
+    </tr>
+    <tr>
+      <td>0xFFFF_FF00</td>
+      <td>MTIMECMP</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      A machine timer interrupt becomes pending when MTIME > MTIMECMP.
+      </td>
+    </tr>
+    <tr>
+      <td>0xFFFF_FF04</td>
+      <td>MTIMECMP_H</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      A machine timer interrupt becomes pending when MTIME > MTIMECMP.
       </td>
     </tr>
   </tbody>
