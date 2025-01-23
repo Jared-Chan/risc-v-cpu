@@ -80,7 +80,6 @@ module cpu #(
   logic signed [31:0] rs1_s;
   logic [2:0] f3;
   logic [2:0] f3_reg;
-  logic [2:0] f3_csr_reg;
   logic [4:0] rd;
   logic [4:0] rd_reg;
 
@@ -119,7 +118,6 @@ module cpu #(
   assign csr_imm = {27'b0, rs1_reg};
   logic [11:0] csr_src_dest;
   csr_e csr_idx;
-  csr_e csr_idx_comb;
   logic csr_read_only;
 
 
@@ -144,31 +142,6 @@ module cpu #(
     u_imm = {idata_i[31], idata_i[30:20], idata_i[19:12], 12'b0};
 
     j_imm = {{12{idata_i[31]}}, idata_i[19:12], idata_i[20], idata_i[30:25], idata_i[24:21], 1'b0};
-
-    case (idata_i[31:20])
-      `CSR_CYCLE: csr_idx_comb = CYCLE;
-      `CSR_CYCLE_H: csr_idx_comb = CYCLE_H;
-      `CSR_TIME: csr_idx_comb = TIME;
-      `CSR_TIME_H: csr_idx_comb = TIME_H;
-      `CSR_INSTRET: csr_idx_comb = INSTRET;
-      `CSR_INSTRET_H: csr_idx_comb = INSTRET_H;
-      `CSR_MISA: csr_idx_comb = MISA;
-      `CSR_MSTATUS: csr_idx_comb = MSTATUS;
-      `CSR_MSTATUS_H: csr_idx_comb = MSTATUS_H;
-      `CSR_MTVEC: csr_idx_comb = MTVEC;
-      `CSR_MIE: csr_idx_comb = MIE;
-      `CSR_MIP: csr_idx_comb = MIP;
-      `CSR_MSCRATCH: csr_idx_comb = MSCRATCH;
-      `CSR_MEPC: csr_idx_comb = MEPC;
-      `CSR_MCAUSE: csr_idx_comb = MCAUSE;
-      `CSR_MTVAL: csr_idx_comb = MTVAL;
-      `CSR_MVENDORID: csr_idx_comb = XIMPL;
-      `CSR_MARCHID: csr_idx_comb = XIMPL;
-      `CSR_MIMPID: csr_idx_comb = XIMPL;
-      `CSR_MHARTID: csr_idx_comb = XIMPL;  // single-core, so 0
-      `CSR_MCONFIGPTR: csr_idx_comb = XIMPL;
-      default: csr_idx_comb = XSUPPORT;
-    endcase
 
     // Avoid data hazard
     if (state == EXECUTE && (opcode == `OP_LUI || opcode == `OP_AUIPC ||
@@ -225,43 +198,31 @@ module cpu #(
       comp_operand_1 <= x_rs1;
       comp_operand_2 <= x_rs2;
 
-      // Overwrite alu operands and f3_reg for CSR operations
-      if (idata_i[6:0] == `OP_SYS) begin
-        f3_csr_reg <= f3;
-        unique case (f3)
-          `F3_CSRRW: begin
-            // Nothing to do
-          end
-          `F3_CSRRS: begin
-            alu_operand_1 <= csr[csr_idx_comb];
-            alu_operand_2 <= x_rs1;
-            f3_reg <= `F3_OR;
-          end
-          `F3_CSRRC: begin
-            alu_operand_1 <= csr[csr_idx_comb];
-            alu_operand_2 <= ~x_rs1;
-            f3_reg <= `F3_AND;
-          end
-          `F3_CSRRWI: begin
-            // Nothing to do
-          end
-          `F3_CSRRSI: begin
-            alu_operand_1 <= csr[csr_idx_comb];
-            alu_operand_2 <= {27'b0, rs1};
-            f3_reg <= `F3_OR;
-          end
-          `F3_CSRRCI: begin
-            alu_operand_1 <= csr[csr_idx_comb];
-            alu_operand_2 <= {{27{1'b1}}, ~rs1};
-            f3_reg <= `F3_AND;
-          end
-
-          default: ;
-        endcase
-      end
-
-      csr_idx <= csr_idx_comb;
       csr_src_dest <= idata_i[31:20];
+      case (idata_i[31:20])
+        `CSR_CYCLE: csr_idx <= CYCLE;
+        `CSR_CYCLE_H: csr_idx <= CYCLE_H;
+        `CSR_TIME: csr_idx <= TIME;
+        `CSR_TIME_H: csr_idx <= TIME_H;
+        `CSR_INSTRET: csr_idx <= INSTRET;
+        `CSR_INSTRET_H: csr_idx <= INSTRET_H;
+        `CSR_MISA: csr_idx <= MISA;
+        `CSR_MSTATUS: csr_idx <= MSTATUS;
+        `CSR_MSTATUS_H: csr_idx <= MSTATUS_H;
+        `CSR_MTVEC: csr_idx <= MTVEC;
+        `CSR_MIE: csr_idx <= MIE;
+        `CSR_MIP: csr_idx <= MIP;
+        `CSR_MSCRATCH: csr_idx <= MSCRATCH;
+        `CSR_MEPC: csr_idx <= MEPC;
+        `CSR_MCAUSE: csr_idx <= MCAUSE;
+        `CSR_MTVAL: csr_idx <= MTVAL;
+        `CSR_MVENDORID: csr_idx <= XIMPL;
+        `CSR_MARCHID: csr_idx <= XIMPL;
+        `CSR_MIMPID: csr_idx <= XIMPL;
+        `CSR_MHARTID: csr_idx <= XIMPL;  // single-core, so 0
+        `CSR_MCONFIGPTR: csr_idx <= XIMPL;
+        default: csr_idx <= XSUPPORT;
+      endcase
       csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
     end // if do_decode
     else if (state == WAIT_L) begin
@@ -271,31 +232,15 @@ module cpu #(
         j_dest <= opcode == `OP_JAL ? dec_pc + j_imm_reg : (i_imm_reg + x_rd) & 32'hFFFFFFFE;
         load_addr <= x_rd + i_imm_reg;
         s_addr_reg <= s_imm_reg + x_rd;
-
-        if (opcode != `OP_SYS) begin
-          alu_operand_1 <= f3_reg == `F3_SLT ? x_rd_s : x_rd;
-        end else begin
-          unique case (f3_csr_reg)
-            `F3_CSRRS: begin
-              alu_operand_2 <= x_rd;
-            end
-            `F3_CSRRC: begin
-              alu_operand_2 <= ~x_rd;
-            end
-            default: ;
-            // otherwise, 'rs1' is used as an immediate, so there's no hazard
-          endcase
-        end
+        alu_operand_1 <= f3_reg == `F3_SLT ? x_rd_s : x_rd;
         comp_operand_1 <= x_rd;
       end
 
       if (ex_rd == rs2_reg) begin
-        if (opcode != `OP_SYS) begin
-          alu_operand_2 <= opcode == `OP_RR ?
+        alu_operand_2 <= opcode == `OP_RR ?
               (f3_reg == `F3_SLT ? x_rd_s : x_rd) :
               (f3_reg == `F3_SLT ? i_imm_reg_s :
               ((f3_reg == `F3_SLL || f3_reg == `F3_SR) ? {27'b0, i_shamt_reg} : i_imm_reg));
-        end
         comp_operand_2 <= x_rd;
       end
     end
@@ -735,11 +680,12 @@ module cpu #(
                   end
                   `F3_CSRRS: begin
                     x[rd_reg] <= x_rd;
-                    if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= alu_result;
+                    if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | x[rs1_reg];
                   end
                   `F3_CSRRC: begin
                     x[rd_reg] <= x_rd;
-                    if (rs1_reg != 0 && !csr_read_only) csr[csr_idx] <= alu_result;
+                    if (rs1_reg != 0 && !csr_read_only)
+                      csr[csr_idx] <= csr[csr_idx] & (~x[rs1_reg]);
                   end
                   `F3_CSRRWI: begin
                     if (!csr_read_only) csr[csr_idx] <= csr_imm;
@@ -747,11 +693,11 @@ module cpu #(
                   end
                   `F3_CSRRSI: begin
                     x[rd_reg] <= x_rd;
-                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= alu_result;
+                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] | csr_imm;
                   end
                   `F3_CSRRCI: begin
                     x[rd_reg] <= x_rd;
-                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= alu_result;
+                    if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
                   end
                   `F3_PRIV: begin
                     unique case (i_imm_reg[11:0])
