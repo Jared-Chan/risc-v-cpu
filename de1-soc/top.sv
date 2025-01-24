@@ -19,11 +19,13 @@ module top (
 
   wire pll_outclk;
   wire pll_outclk_ram;
+  wire pll_outclk_mul;
   pll pll_inst (
       .refclk(CLOCK_50),
       .rst(~rst_n),
       .outclk_0(pll_outclk),
-      .outclk_1(pll_outclk_ram)
+      .outclk_1(pll_outclk_ram),
+      .outclk_2(pll_outclk_mul)
   );
 
   logic [31:0] clk_cnt = 0;
@@ -57,6 +59,9 @@ module top (
       .ClockFreqHz(`CLK_FREQ)
   ) core (
       .clk(pll_outclk),
+`ifdef ZMMUL
+      .clk_mul(pll_outclk_mul),
+`endif
       .rst_n(rst_n),
       .iaddr_o(iaddr),
       .idata_i(idata),

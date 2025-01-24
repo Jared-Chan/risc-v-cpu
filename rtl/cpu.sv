@@ -247,7 +247,11 @@ module cpu #(
       endcase
       csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
     end // if do_decode
+`ifdef ZMMUL
     else if (state == WAIT_L || (state == WAIT_MUL && mul_ready)) begin
+`else
+    else if (state == WAIT_L) begin
+`endif
       // avoid data hazard when there are wait states and the combinational
       // logic couldn't prevent it
       if (ex_rd == rs1_reg) begin

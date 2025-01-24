@@ -10,6 +10,9 @@
 
 `define UART_BAUD_RATE 115200
 
+`define ZMMUL
+`define PRIV
+
 `define MREG_PREFIX 8'hFF
 `define MTIME_ADDR 32'hFFFF_FFF0
 `define MTIME_H_ADDR 32'hFFFF_FFF4
