@@ -73,8 +73,11 @@ Output is printed to `mock_uart_output.txt`.
 
 ### Results
 
+#### RV32I
+
 * Simulated with verilator and run on an FPGA
 * 10 MHz clock
+* no multiplier
 * On-chip RAM of 32 KB
 
 ```
@@ -83,6 +86,54 @@ CoreMark Size    : 666
 Total ticks      : 22589627
 Total time (secs): 22
 Iterations/Sec   : 9
+Iterations       : 200
+Compiler version : GCC15.0.0 20241225 (experimental)
+Compiler flags   : -DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2
+Memory location  : STACK
+seedcrc          : 0xe9f5
+[0]crclist       : 0xe714
+[0]crcmatrix     : 0x1fd7
+[0]crcstate      : 0x8e3a
+[0]crcfinal      : 0x382f
+Correct operation validated. See README.md for run and reporting rules.
+```
+
+#### RV32IM
+
+* Simulated with verilator and run on an FPGA
+* 10 MHz clock
+* multiplier with a 10 MHz clock
+* On-chip RAM of 32 KB
+```
+2K performance run parameters for coremark.
+CoreMark Size    : 666
+Total ticks      : 17120267
+Total time (secs): 17
+Iterations/Sec   : 11
+Iterations       : 200
+Compiler version : GCC15.0.0 20241225 (experimental)
+Compiler flags   : -DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2
+Memory location  : STACK
+seedcrc          : 0xe9f5
+[0]crclist       : 0xe714
+[0]crcmatrix     : 0x1fd7
+[0]crcstate      : 0x8e3a
+[0]crcfinal      : 0x382f
+Correct operation validated. See README.md for run and reporting rules.
+```
+
+#### RV32IM + fast multiplier clock
+
+* Simulated with verilator and run on an FPGA
+* 10 MHz clock
+* multiplier with a 50 MHz clock
+* On-chip RAM of 32 KB
+```
+2K performance run parameters for coremark.
+CoreMark Size    : 666
+Total ticks      : 11482667
+Total time (secs): 11
+Iterations/Sec   : 18
 Iterations       : 200
 Compiler version : GCC15.0.0 20241225 (experimental)
 Compiler flags   : -DPERFORMANCE_RUN=1 -DITERATIONS=200 -O2

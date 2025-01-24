@@ -3,8 +3,9 @@
 A simple 32-bit RISC-V CPU core that supports 
 * the RV32I Base Integer Instruction Set
 * the "Zicntr" extension
+* the "Zmmul" extension, via an accelerator running in a faster clock domain
 * some of the "Zicsr" extension, including `cycle`, `time` and `instret`
-* some of the privileged instruction set like timer interrupts and exceptions
+* some of the privileged instruction set, like timer interrupts and exceptions
 
 The design is written in SystemVerilog. Design verification is done using UVM-SystemC, with Verilator as the simulator, CRAVE as the constrained randomization environment, and FC4SC as the functional coverage collector.
 
@@ -19,14 +20,17 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
 ## Repository structure
 
 * `doc/`: documentation, including the technical specification and design verification document
-* `dv/cpu/`: design verification in C++
-    * `sc_main.cpp`: 'top level' testbench
-    * `cpu_util.*`: common utility
-    * other: UVM-SystemC classes
+* `dv/`
+    * `cpu/`: design verification in C++
+        * `sc_main.cpp`: 'top level' testbench
+        * `cpu_util.*`: common utility
+        * other: UVM-SystemC classes
+    * `mul/`: simple SystemVerilog testbench
 * `rtl/`: design in SystemVerilog
     * `cpu.sv`: CPU design
     * `cpu.svh`: definitions
     * `config.svh`: configurations
+    * `mul.sv`: multiplier with safe clock domain crossing
     * `dual_port_ram.sv`: mock memory for simulation
     * `uart*.sv`: UART modules with configurable baud rate, data bit size, stop bit, parity bit, and buffer size
     * `mock_uart_rx.sv`: mock UART receiver for recording app output during simulation

@@ -2,6 +2,9 @@
 
 module top (
     input logic clk,
+`ifdef ZMMUL
+    input logic clk_mul,
+`endif
     input logic rst_n,
 
     input  uart_rx,
@@ -13,10 +16,10 @@ module top (
   logic [31:0] wdata;
   logic [29:0] addr;
   logic wr, addr_strobe;
-  logic [3:0] byte_en;
-  logic [3:0] ibyte_en;
+  logic [ 3:0] byte_en;
+  logic [ 3:0] ibyte_en;
 
-  wire [31:0] data;
+  wire  [31:0] data;
 
   logic ram_select, io_select;
 
@@ -40,6 +43,9 @@ module top (
       .ClockFreqHz(`CLK_FREQ)
   ) core (
       .clk(clk),
+`ifdef ZMMUL
+      .clk_mul(clk_mul),
+`endif
       .rst_n(rst_n),
       .iaddr_o(iaddr),
       .idata_i(idata),

@@ -8,7 +8,7 @@ RISCV_GCC_OPTS ?= \
 				  -mcmodel=medany \
 				  -fvisibility=hidden \
 				  -ffreestanding \
-				  -march=rv32i_zicntr \
+				  -march=rv32i_zicntr_zmmul \
 				  -mabi=ilp32  \
 
 

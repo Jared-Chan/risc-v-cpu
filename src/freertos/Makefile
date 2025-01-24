@@ -8,7 +8,7 @@ RISCV_GCC_OPTS ?= \
 				  -mcmodel=medany \
 				  -fvisibility=hidden \
 				  -nostartfiles \
-				  -march=rv32i_zicsr \
+				  -march=rv32i_zicsr_zmmul \
 				  -mabi=ilp32
 
 RISCV_OBJDUMP ?= \

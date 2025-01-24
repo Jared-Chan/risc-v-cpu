@@ -78,6 +78,86 @@ The access to CSRs are defined in line with the "Zicsr" extension and privileged
   </thead>
   <tbody>
     <tr>
+      <td>0x300</td>
+      <td>WR</td>
+      <td>MSTATUS</td>
+      <td>
+      Operating state of the hart.
+      </td>
+    </tr>
+    <tr>
+      <td>0x301</td>
+      <td>WARL</td>
+      <td>MISA</td>
+      <td>
+      Supported ISA.
+      </td>
+    </tr>
+    <tr>
+      <td>0x304</td>
+      <td>WR</td>
+      <td>MIE</td>
+      <td>
+      Interrupt enable.
+      </td>
+    </tr>
+    <tr>
+      <td>0x305</td>
+      <td>WARL</td>
+      <td>MTVEC</td>
+      <td>
+      Trap vector configuration.
+      </td>
+    </tr>
+    <tr>
+      <td>0x310</td>
+      <td>WR</td>
+      <td>MSTATUS_H</td>
+      <td>
+      Operating state of the hart.
+      </td>
+    </tr>
+    <tr>
+      <td>0x340</td>
+      <td>WR</td>
+      <td>MSCRATCH</td>
+      <td>
+      Scratch.
+      </td>
+    </tr>
+    <tr>
+      <td>0x341</td>
+      <td>WR</td>
+      <td>MEPC</td>
+      <td>
+      Machine exception program counter.
+      </td>
+    </tr>
+    <tr>
+      <td>0x342</td>
+      <td>WR</td>
+      <td>MCAUSE</td>
+      <td>
+      Trap cause.
+      </td>
+    </tr>
+    <tr>
+      <td>0x343</td>
+      <td>WR</td>
+      <td>MTVAL</td>
+      <td>
+      Exception-specific information.
+      </td>
+    </tr>
+    <tr>
+      <td>0x344</td>
+      <td>WR</td>
+      <td>MIP</td>
+      <td>
+      Interrupt pending.
+      </td>
+    </tr>
+    <tr>
       <td>0xC00</td>
       <td>R</td>
       <td>CYCLE</td>
@@ -125,86 +205,6 @@ The access to CSRs are defined in line with the "Zicsr" extension and privileged
       The upper 32 bits of the amount of instructions retired since an arbitrary start time in the past.
       </td>
     </tr>
-    <tr>
-      <td>0x301</td>
-      <td>WARL</td>
-      <td>MISA</td>
-      <td>
-      Supported ISA.
-      </td>
-    </tr>
-    <tr>
-      <td>0x300</td>
-      <td>WR</td>
-      <td>MSTATUS</td>
-      <td>
-      Operating state of the hart.
-      </td>
-    </tr>
-    <tr>
-      <td>0x310</td>
-      <td>WR</td>
-      <td>MSTATUS_H</td>
-      <td>
-      Operating state of the hart.
-      </td>
-    </tr>
-    <tr>
-      <td>0x305</td>
-      <td>WARL</td>
-      <td>MTVEC</td>
-      <td>
-      Trap vector configuration.
-      </td>
-    </tr>
-    <tr>
-      <td>0x304</td>
-      <td>WR</td>
-      <td>MIE</td>
-      <td>
-      Interrupt enable.
-      </td>
-    </tr>
-    <tr>
-      <td>0x344</td>
-      <td>WR</td>
-      <td>MIP</td>
-      <td>
-      Interrupt pending.
-      </td>
-    </tr>
-    <tr>
-      <td>0x340</td>
-      <td>WR</td>
-      <td>MSCRATCH</td>
-      <td>
-      Scratch.
-      </td>
-    </tr>
-    <tr>
-      <td>0x341</td>
-      <td>WR</td>
-      <td>MEPC</td>
-      <td>
-      Machine exception program counter.
-      </td>
-    </tr>
-    <tr>
-      <td>0x342</td>
-      <td>WR</td>
-      <td>MCAUSE</td>
-      <td>
-      Trap cause.
-      </td>
-    </tr>
-    <tr>
-      <td>0x343</td>
-      <td>WR</td>
-      <td>MTVAL</td>
-      <td>
-      Exception-specific information.
-      </td>
-    </tr>
   </tbody>
 </table>
 
@@ -222,24 +222,6 @@ The access to CSRs are defined in line with the "Zicsr" extension and privileged
   </thead>
   <tbody>
     <tr>
-      <td>0xFFFF_FFF0</td>
-      <td>MTIME</td>
-      <td>32</td>
-      <td>WR</td>
-      <td>
-      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds.
-      </td>
-    </tr>
-    <tr>
-      <td>0xFFFF_FFF4</td>
-      <td>MTIME_H</td>
-      <td>32</td>
-      <td>WR</td>
-      <td>
-      The upper 32 bits of the time passed since an arbitrary start time in the past.
-      </td>
-    </tr>
-    <tr>
       <td>0xFFFF_FF00</td>
       <td>MTIMECMP</td>
       <td>32</td>
@@ -255,6 +237,24 @@ The access to CSRs are defined in line with the "Zicsr" extension and privileged
       <td>WR</td>
       <td>
       A machine timer interrupt becomes pending when MTIME > MTIMECMP.
+      </td>
+    </tr>
+    <tr>
+      <td>0xFFFF_FFF0</td>
+      <td>MTIME</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      The lower 32 bits of the time passed since an arbitrary start time in the past. The unit is microseconds.
+      </td>
+    </tr>
+    <tr>
+      <td>0xFFFF_FFF4</td>
+      <td>MTIME_H</td>
+      <td>32</td>
+      <td>WR</td>
+      <td>
+      The upper 32 bits of the time passed since an arbitrary start time in the past.
       </td>
     </tr>
   </tbody>
@@ -358,6 +358,14 @@ The access to CSRs are defined in line with the "Zicsr" extension and privileged
       <td>out</td>
       <td>
       Active-high byte enable to instruction memory.
+      </td>
+    </tr>
+    <tr>
+      <td><code>clk_mul</code></td>
+      <td>1</td>
+      <td>in</td>
+      <td>
+      Clock for multiplier. Its frequency should be at least that of clk.
       </td>
     </tr>
   </tbody>

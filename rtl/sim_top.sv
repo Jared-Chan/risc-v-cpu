@@ -6,10 +6,17 @@ module sim_top (
 );
 
   logic clk, rst_n;
+`ifdef ZMMUL
+  logic clk_mul;
+`endif
+
 
   logic uart_rx, uart_tx;
   top soc (
       .clk(clk),
+`ifdef ZMMUL
+      .clk_mul(clk_mul),
+`endif
       .rst_n(rst_n),
       .uart_rx(uart_rx),
       .uart_tx(uart_tx)
@@ -53,6 +60,16 @@ module sim_top (
       #5;
     end
   end
+
+`ifdef ZMMUL
+  initial begin
+    clk_mul = 0;
+    forever begin
+      clk_mul = ~clk_mul;
+      #1;
+    end
+  end
+`endif
   /*
   initial begin
       #1000;

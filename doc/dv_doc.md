@@ -4,16 +4,17 @@
 
 ## Goals
 * **DV**
-  * Verify the core's support of the RV32I Base Integer Instruction Set with the "Zicsr" and "Zicntr" extensions by running dynamic simulations with a UVM-SystemC based testbench that uses CRAVE for constraint randomization and FC4SC for coverage collection
+  * Verify the core's support of the RV32I Base Integer Instruction Set with the "Zicsr", "Zmmul", and "Zicntr" extensions by running dynamic simulations with a UVM-SystemC based testbench that uses CRAVE for constraint randomization and FC4SC for coverage collection
   * Develop and run all tests based on the [testplan](#testplan) below towards closing code and functional coverage on the core
 
 ## Current status
 
 Summary
-* unprivileged architecture:
+* unprivileged RV32I architecture:
     * functional coverage: >95%
     * `FENCE`, `ECALL`, and `EBREAK` aren't implemented
 * there is no verfication for the privileged architecture yet
+* there is no verfication for the "Zmmul" extension yet
 
 Details: [coverage results](./coverage_results.xml)
 
@@ -127,6 +128,11 @@ $ cd build
 $ cmake ..
 $ make
 $ ./cpu_sim
+```
+
+In `rtl/config.svh`, the following should be defined
+```verilog
+`define DV
 ```
 
 ## Testplan

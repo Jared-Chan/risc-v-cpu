@@ -7,6 +7,10 @@ module cpu #(
     input logic clk,
     input logic rst_n,
 
+`ifdef ZMMUL
+    input logic clk_mul,
+`endif
+
     // Memory
     output logic [29:0] iaddr_o,
     input logic [31:0] idata_i,
@@ -42,6 +46,7 @@ module cpu #(
     TIME_H,
     INSTRET,
     INSTRET_H,
+`ifdef PRIV
     MISA,
     MSTATUS,
     MSTATUS_H,
@@ -53,13 +58,18 @@ module cpu #(
     MCAUSE,
     MTVAL,
     XIMPL,  // 0 is returned
+`endif
     XSUPPORT  // unsupported CSR
   } csr_e;
 
   // Control and Status Registers
+`ifdef PRIV
   logic [`XLEN-1:0] csr[18];
-  logic [63:0] mtime;
   logic [63:0] mtimecmp;
+`else
+  logic [`XLEN-1:0] csr[7];
+`endif
+  logic [63:0] mtime;
 
   // Cycle and Time counters
   logic [63:0] cycle;
@@ -167,9 +177,13 @@ module cpu #(
       // pc is the pc of the next instruction
       // pc - 4 is the pc of the instruction being decoded
       dec_pc <= pc - 4;
+
+`ifdef PRIV
       if (s_addr[31:24] == `MREG_PREFIX && idata_i[6:0] == `OP_S) opcode <= `OP_S_MREG;
       else if (s_addr[31:24] == `MREG_PREFIX && idata_i[6:0] == `OP_L) opcode <= `OP_L_MREG;
-      else opcode <= idata_i[6:0];
+      else
+`endif
+          opcode <= idata_i[6:0];
 
       branch_dest <= pc - 4 + b_imm;
       auipc_result <= pc - 4 + u_imm;
@@ -195,6 +209,12 @@ module cpu #(
           (f3 == `F3_SLT ? i_imm_s :
           ((f3 == `F3_SLL || f3 == `F3_SR) ? {27'b0, i_shamt} : i_imm));
 
+`ifdef ZMMUL
+      alu_operand_1_signed <= (f3 == `F3_MULHU || f3 == `F3_MUL) ? '0 : '1;
+      alu_operand_2_signed <= (f3 == `F3_MULH) ? '1 : '0;
+`endif
+
+
       comp_operand_1 <= x_rs1;
       comp_operand_2 <= x_rs2;
 
@@ -206,6 +226,7 @@ module cpu #(
         `CSR_TIME_H: csr_idx <= TIME_H;
         `CSR_INSTRET: csr_idx <= INSTRET;
         `CSR_INSTRET_H: csr_idx <= INSTRET_H;
+`ifdef PRIV
         `CSR_MISA: csr_idx <= MISA;
         `CSR_MSTATUS: csr_idx <= MSTATUS;
         `CSR_MSTATUS_H: csr_idx <= MSTATUS_H;
@@ -221,11 +242,12 @@ module cpu #(
         `CSR_MIMPID: csr_idx <= XIMPL;
         `CSR_MHARTID: csr_idx <= XIMPL;  // single-core, so 0
         `CSR_MCONFIGPTR: csr_idx <= XIMPL;
+`endif
         default: csr_idx <= XSUPPORT;
       endcase
       csr_read_only <= idata_i[31:30] == 2'b11 ? 1'b1 : 1'b0;
     end // if do_decode
-    else if (state == WAIT_L) begin
+    else if (state == WAIT_L || (state == WAIT_MUL && mul_ready)) begin
       // avoid data hazard when there are wait states and the combinational
       // logic couldn't prevent it
       if (ex_rd == rs1_reg) begin
@@ -331,6 +353,38 @@ module cpu #(
   end
   /* End ALU */
 
+`ifdef ZMMUL
+  /* Multiplier */
+  logic mul_start;
+  logic mul_ready;
+  logic [31:0] mul_operand_1;
+  logic [31:0] mul_operand_2;
+  logic alu_operand_1_signed;
+  logic alu_operand_2_signed;
+  logic mul_operand_1_signed;
+  logic mul_operand_2_signed;
+  logic [31:0] mul_result_l;
+  logic [31:0] mul_result_h;
+
+  mul #(
+      .Width(32)
+  ) mul_inst (
+      .rst_n(rst_n),
+      .clk_sys(clk),
+      .multiplicand(mul_operand_1),
+      .multiplier(mul_operand_2),
+      .multiplicand_signed(mul_operand_1_signed),
+      .multiplier_signed(mul_operand_2_signed),
+      .start(mul_start),
+
+      .clk_mul(clk_mul),
+      .ready_sync(mul_ready),
+      .result_l(mul_result_l),
+      .result_h(mul_result_h)
+  );
+  /* End multiplier */
+`endif
+
   /* Calculate x[rd] */
   logic [31:0] x_rd;
   logic signed [31:0] x_rd_s;
@@ -365,6 +419,14 @@ module cpu #(
           end
         endcase  // opcode
       end
+`ifdef ZMMUL
+      WAIT_MUL: begin
+        unique case (ex_f3)
+            `F3_MUL: x_rd = mul_result_l;
+            default: x_rd = mul_result_h;
+        endcase
+      end
+`endif
       WAIT_L: begin
         unique case (ex_f3)
           `F3_LB: begin
@@ -464,6 +526,11 @@ module cpu #(
     WAIT_DECODE,
     WAIT_L,
     WAIT_READ,
+`ifdef ZMMUL
+    WAIT_MUL,
+    WAIT_MUL_START,
+    WAIT_MUL_READY,
+`endif
     XXX
   } state_e;
 
@@ -483,6 +550,7 @@ module cpu #(
       instret <= '0;
       byte_en_o <= 4'b1111;
 
+`ifdef PRIV
       csr[MISA] <= {`MISA_MXL, 4'b0, `MISA_RV32I};
       csr[MIP] <= '0;
       csr[MIE] <= '0;
@@ -491,13 +559,23 @@ module cpu #(
       // no MPRV
       // MBE is always 0
       mtimecmp <= '1;
-    end else begin
+`endif
+
+`ifdef ZMMUL
+        mul_start <= '0;
+`endif
+
+    end else begin // rst_n
 
       pc <= pc + 32'h4;
       do_decode <= '1;
       wr_o <= 0;
       data_addr_strobe_o <= '0;
       byte_en_o <= 4'b1111;
+
+`ifdef ZMMUL
+        mul_start <= '0;
+`endif
 
       // begin: cycle, time, and instret
       cycle <= cycle + 1'b1;
@@ -511,6 +589,7 @@ module cpu #(
       end
       // end: cycle, time, and instret
 
+`ifdef PRIV
       // begin: interrupt
       // set interrupt pending
       if (mtime > mtimecmp) csr[MIP][`MIP_BITS_MTIP] <= 1'b1;
@@ -535,10 +614,11 @@ module cpu #(
         end else if (csr[MIE][`MIE_BITS_MTIE] & csr[MIP][`MIP_BITS_MTIP]) begin
           csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `EXCEPTION_CODE_M_TIMER;
           if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0) pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
-          else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`EXCEPTION_CODE_M_TIMER << 2);
+          else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + ({1'b0, `EXCEPTION_CODE_M_TIMER} << 2);
         end
       end  // end: interrupt
       else begin  // no pending interrupt to handle
+`endif
         unique case (state)
           EXECUTE: begin
             instret <= instret + 1'b1;
@@ -571,6 +651,7 @@ module cpu #(
                   state <= WAIT_PC;
                 end
               end
+`ifdef PRIV
               `OP_L_MREG: begin
                 unique case (load_addr[7:0])
                   `MTIMECMP_ADDR_8: x[rd_reg] <= mtimecmp[31:0];
@@ -581,6 +662,17 @@ module cpu #(
                   end
                 endcase
               end
+              `OP_S_MREG: begin
+                unique case (s_addr_reg[7:0])
+                  `MTIMECMP_ADDR_8: mtimecmp[31:0] <= x[rs2_reg];
+                  `MTIMECMP_H_ADDR_8: mtimecmp[63:32] <= x[rs2_reg];
+                  `MTIME_ADDR_8: mtime[31:0] <= x[rs2_reg];
+                  `MTIME_H_ADDR_8: mtime[63:32] <= x[rs2_reg];
+                  default: begin
+                  end
+                endcase
+              end
+`endif
               `OP_L: begin
                 data_addr_strobe_o <= '1;
                 full_addr_o <= load_addr;
@@ -592,16 +684,6 @@ module cpu #(
                 pc <= pc;
                 do_decode <= '0;
                 state <= WAIT_READ;
-              end
-              `OP_S_MREG: begin
-                unique case (s_addr_reg[7:0])
-                  `MTIMECMP_ADDR_8: mtimecmp[31:0] <= x[rs2_reg];
-                  `MTIMECMP_H_ADDR_8: mtimecmp[63:32] <= x[rs2_reg];
-                  `MTIME_ADDR_8: mtime[31:0] <= x[rs2_reg];
-                  `MTIME_H_ADDR_8: mtime[63:32] <= x[rs2_reg];
-                  default: begin
-                  end
-                endcase
               end
               `OP_S: begin
                 data_addr_strobe_o <= '1;
@@ -665,7 +747,29 @@ module cpu #(
                 x[rd_reg] <= x_rd;
               end
               `OP_RR: begin
+`ifdef ZMMUL
+                if (f7_reg == `F7_MUL) begin
+                    mul_operand_1 <= alu_operand_1;
+                    mul_operand_2 <= alu_operand_2;
+                    mul_operand_1_signed <= alu_operand_1_signed;
+                    mul_operand_2_signed <= alu_operand_2_signed;
+                    ex_f3 <= f3_reg;
+                    ex_rd <= rd_reg;
+                    instret <= instret;
+                    pc <= pc;
+                    do_decode <= '0;
+                    if (mul_ready) begin
+                        mul_start <= '1;
+                        state <= WAIT_MUL_START;
+                    end
+                    else state <= WAIT_MUL_READY;
+                end
+                else begin
+`endif
                 x[rd_reg] <= x_rd;
+`ifdef ZMMUL
+                end
+`endif
               end
               `OP_F: begin
               end
@@ -700,6 +804,7 @@ module cpu #(
                     if (csr_imm != 0 && !csr_read_only) csr[csr_idx] <= csr[csr_idx] & (~csr_imm);
                   end
                   `F3_PRIV: begin
+`ifdef PRIV
                     unique case (i_imm_reg[11:0])
                       `F12_MRET: begin
                         pc <= csr[MEPC];
@@ -724,7 +829,8 @@ module cpu #(
                         csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `E_CODE_M_ECALL;
                         if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0)
                           pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
-                        else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`E_CODE_M_ECALL << 2);
+                        else
+                          pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + ({1'b0, `E_CODE_M_ECALL} << 2);
                       end
                       `F12_EBREAK: begin
                         instret <= instret;
@@ -737,11 +843,17 @@ module cpu #(
                         csr[MCAUSE][`MCAUSE_BITS_EXCEPTION_CODE] <= `E_CODE_EBREAK;
                         if (csr[MTVEC][`MTVEC_BITS_MODE] == 2'b0)
                           pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0};
-                        else pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + (`E_CODE_EBREAK << 2);
+                        else
+                          pc <= {csr[MTVEC][`MTVEC_BITS_BASE], 2'b0} + ({1'b0, `E_CODE_EBREAK} << 2);
                       end
                       default: ;
-`endif
+`endif // ifdef ENV_FINISH
                     endcase
+`else // ifdef PRIV
+                    $display("Finish with EBREAK/ECALL");
+                    $finish;
+`endif // ifdef PRIV
+
                   end
                   default: begin
                   end
@@ -752,6 +864,43 @@ module cpu #(
               end
             endcase  // opcode
           end
+`ifdef ZMMUL
+          WAIT_MUL_READY: begin
+            pc <= pc;
+            do_decode <= '0;
+            if (mul_ready) begin
+                mul_start <= '1;
+                state <= WAIT_MUL_START;
+            end
+            else begin
+                state <= WAIT_MUL_READY;
+            end
+          end
+          WAIT_MUL_START: begin
+            pc <= pc;
+            do_decode <= '0;
+            if (~mul_ready) begin
+                state <= WAIT_MUL;
+                mul_start <= '0;
+            end
+            else begin
+                state <= WAIT_MUL_START;
+                mul_start <= '1;
+            end
+          end
+          WAIT_MUL: begin
+            if (mul_ready) begin
+                instret <= instret + 1'b1;
+                x[ex_rd] <= x_rd;
+                state <= EXECUTE;
+            end
+            else begin
+                pc <= pc;
+                do_decode <= '0;
+                state <= WAIT_MUL;
+            end
+          end
+`endif
           WAIT_PC: begin
             state <= WAIT_DECODE;
           end
@@ -773,7 +922,9 @@ module cpu #(
           default: begin
           end
         endcase  // state
-      end
+`ifdef PRIV
+      end // if interrupt
+`endif
     end
     x[0] <= '0;  // hardwire to 0
     // read-only csrs
@@ -783,6 +934,7 @@ module cpu #(
     csr[TIME_H] <= mtime[63:32];
     csr[INSTRET] <= instret[31:0];
     csr[INSTRET_H] <= instret[63:32];
+`ifdef PRIV
     // read-only 0 csrs
     csr[MSTATUS][`MSTATUS_BITS_MPRV] <= 1'b0;  // U-mode not supported
     csr[MSTATUS][`MSTATUS_BITS_MXR] <= 1'b0;  // S-mode not supported
@@ -808,6 +960,7 @@ module cpu #(
     csr[MISA] <= {`MISA_MXL, 4'b0, `MISA_RV32I};
     // 0 returned csr
     csr[XIMPL] <= '0;
+`endif
   end
 
 `ifdef DEBUG_HEARTBEAT
@@ -817,11 +970,13 @@ module cpu #(
     if (debug_counter % 10000000 == 0) begin
       `TRACE
     end
+    /*
     if (pc == csr[MTVEC] + 8) begin
       // +8 or dec_pc would work too
       $display("\n=============================\nTRAP!!!\n=============================\n");
       `TRACE
     end
+    */
   end
 `endif
 
@@ -829,8 +984,9 @@ module cpu #(
   always_ff @(posedge clk, negedge rst_n) begin : debug
     if (!rst_n) begin
     end else begin
-      `PRINT_STEP
       `TRACE
+      /*
+      `PRINT_STEP
       unique case (state)
         EXECUTE: begin
           unique case (opcode)
@@ -883,6 +1039,7 @@ module cpu #(
         default: begin
         end
       endcase
+    */
     end
     `PRINT_X
   end
