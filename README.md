@@ -58,35 +58,3 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
     * `uart_terminal.cpp`: used with `sim_top` to emulate a UART interface to interact with a simulated system
     * [Details](./sim/README.md)
 
-## Simulation requirements
-
-* [Verilator](https://verilator.org/guide/latest/index.html)
-
-### Additional requirements for design verification
-
-* [SystemC](https://github.com/accellera-official/systemc)
-* [UVM-SystemC](https://www.accellera.org/downloads/drafts-review): UVM-SystemC Library 1.0-beta6 is used.
-* [CRAVE](https://github.com/accellera-official/crave)
-* [FC4SC](https://github.com/amiq-consulting/fc4sc)
-
-Additional CRAVE requirements
-* [Z3](https://github.com/Z3Prover/z3) version 4.6.0 is required.
-* [CUDD](https://github.com/ivmai/cudd)
-* [GLOG](https://github.com/google/glog)
-* [BOOST](https://www.boost.org/)
-
-`CMakeLists.txt` requires the following environment variables to be set
-* `UVM_SYSTEMC_INCLUDE`
-* `UVM_SYSTEMC_LIBDIR`
-* `CRAVE_INCLUDE`
-* `CRAVE_LIBDIR`
-* `CRAVE_UVM_INCLUDE`
-* `Z3_INCLUDE`
-* `Z3_LIBDIR`
-* `CUDD_INCLUDE`
-* `CUDD_LIBDIR`
-* `GLOG_INCLUDE`
-* `GLOG_LIBDIR`
-* `BOOST_INCLUDE`
-* `BOOST_LIBDIR`
-* `FC4SC_INCLUDE`
