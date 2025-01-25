@@ -669,7 +669,12 @@ module cpu #(
               `OP_S_MREG: begin
                 unique case (s_addr_reg[7:0])
                   `MTIMECMP_ADDR_8: mtimecmp[31:0] <= x[rs2_reg];
+`ifdef QUARTUS
+// TODO debug mysterious '1' at bit 0
+                  `MTIMECMP_H_ADDR_8: mtimecmp[63:32] <= x[rs2_reg] & 32'hFFFFFFFE;
+`else
                   `MTIMECMP_H_ADDR_8: mtimecmp[63:32] <= x[rs2_reg];
+`endif
                   `MTIME_ADDR_8: mtime[31:0] <= x[rs2_reg];
                   `MTIME_H_ADDR_8: mtime[63:32] <= x[rs2_reg];
                   default: begin
