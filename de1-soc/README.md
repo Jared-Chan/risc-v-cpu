@@ -30,11 +30,11 @@ In `de1-soc/config.svh`, defining
 
 ## Performance
 
-| Configuration | Max CPU Clock Freq (MHz) | Max Multiplier Clock Freq (MHz) | Max RAM Clock Freq (MHz) | CPU ALMs |
+| Configuration | Max CPU Clock Freq | Max Multiplier Clock Freq | Max RAM Clock Freq | CPU ALMs |
 | ------------- | ------------- | ------------- | ------------- | ------------- |
 | RV32I | ~50 MHz | n.a. | ~300 MHz | ~2500 |
 | RV32I + Zmmul | ~65 MHz | ~190 MHz | ~300 MHz | ~2700 |
 | RV32I + Zmmul + Interrupts | ~55 MHz | ~190 MHz | ~300 MHz | ~3800 |
 
-Max clock frequencies are estimated by the Timing Analyzer in Quartus. The Restricted Fmax of the Slow 1100mV 85C Model is used.
+Max clock frequencies are estimated by the Timing Analyzer in Quartus. The Restricted Fmax of the Slow 1100mV 85C Model is reported here.
 
