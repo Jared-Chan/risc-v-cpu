@@ -124,6 +124,7 @@ The simulator used is verilator.
 The build system is cmake, which verilates the RTL CPU in SystemVerilog, compiles the DV testbench in C++, and links the two with the required libraries like UVM-SystemC, CRAVE, and FC4SC. In `dv/cpu/sc_main.cpp`, `length` is set to 100000 to get a functional coverage of >95%.
 
 ```console
+$ mkdir build
 $ cd build
 $ cmake ..
 $ make

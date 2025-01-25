@@ -44,6 +44,7 @@ In `rtl/config.svh`, the following should be defined
 
 From the root of the repository,
 ```console
+$ mkdir build
 $ cd build
 $ cmake ..
 $ make
