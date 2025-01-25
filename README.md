@@ -21,10 +21,12 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
 
 * `doc/`: documentation, including the technical specification and design verification document
 * `dv/`
-    * `cpu/`: design verification in C++
+    * `cpu/`: design verification in C++ with UVM-SystemC
         * `sc_main.cpp`: 'top level' testbench
         * `cpu_util.*`: common utility
         * other: UVM-SystemC classes
+        * [DV Doc](./doc/dv_doc.md)
+        * [Simulation details](./dv/cpu/README.md)
     * `mul/`: simple SystemVerilog testbench
 * `rtl/`: design in SystemVerilog
     * `cpu.sv`: CPU design
