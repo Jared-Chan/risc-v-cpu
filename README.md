@@ -38,7 +38,6 @@ Applications have been successfully run on a softcore CPU in an FPGA and in a ve
     * `mock_uart_rx.sv`: mock UART receiver for recording app output during simulation
     * `address_decoder.sv`: decodes address to RAM or IO
     * `top.sv`: top level module
-    * `bringup_top.sv`: simple top for smoke test
     * `sim_top.sv`: simulation top for running applications in simulation
 * `src/`: applications
     * `helloworld/`: simple app that prints using UART
